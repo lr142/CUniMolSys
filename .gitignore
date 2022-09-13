@@ -1,0 +1,24 @@
+# lr142 Added:
+# Pycharm environment
+.idea
+
+# CMakes
+cmake-build*
+build
+
+# Common Ouputs of Test Examples
+dump*
+log.lammps
+*lammpstrj*
+pbs_out
+relax.data
+system.data
+vmd.tcl
+*.jpg
+
+
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
