@@ -16,7 +16,8 @@ system.data
 vmd.tcl
 *.jpg
 
-
+# GoogleTest
+googletest
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
