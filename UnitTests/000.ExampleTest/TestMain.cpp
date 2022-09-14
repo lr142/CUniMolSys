@@ -2,6 +2,8 @@
 #include "gtest/gtest.h"
 #include "utility.h"
 
+int add(int a,int b){return a+b;}
+
 TEST(Example,t1){
     EXPECT_EQ(add(1,2),3);
 }

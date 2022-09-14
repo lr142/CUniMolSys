@@ -1,0 +1,10 @@
+# This file lists the appearances of each element, columns are
+# element,size_in_radius,color,
+H,0.54,LightGray,
+Li,0.6,dodgerblue,
+C,0.7,DimGray,
+O,0.7,Firebrick,
+N,0.7,Navy,
+F,0.6,MediumVioletRed,
+S,0.8,gold,
+Default,0.7,Magenta,

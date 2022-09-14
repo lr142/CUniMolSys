@@ -1,0 +1,79 @@
+# 该文件是一个力场中原子类型的描述文件。供UniversalMolecularSystem程序读取。
+# 每行代表一个原子类型，首先是原子的 元素：类型，然后以{ }分别给出与这个原子相连的原子的元素：类型，例如：
+# 例1：
+# O:SPCO {H:SPCH H}   或者  O:SPCO {H:SPCH H:*}
+# 代表这种原子类型是一个O原子，类型名O*，它与两个H原子相连，其中一个H具有类型H*，另外一个H的类型随意）
+# 例2：
+# 对于较复杂的原子类型，可能需要根据与它间接相连的原子来判断，比如
+# H:H-C= {C {C H}}
+# 代表烯烃H（=CH2上的H），它与一个C相连，而与它相连的这个C与另一个C和另一个H相连。
+# 而 H:H-C= {C {C C{* * *}}} 代表烯烃H（RCH-上的H），其中的C{* * *}代表R基团，即它至少是个sp3杂化的C。
+# 在此例中，这两条不同的规则都对应同样的原子类型，这是允许的。
+# 例3：
+# 要代表芳环上的C原子，可以用下面的规则：
+# C:C.ar {* C{C *} C{C *}} 意思是它本身是sp2杂化，且必须与两个sp2杂化的C相连（2-乙烯基1,3-丁二烯是个极特殊的例外）
+# 注意1：某些情况下，某些原子类型的识别必须依赖于它邻近原子的类型（例如芳环C上的H），因此识别原子类型的工作可能需要循环多轮。
+# 在极端情况下，体系中某些关键原子的类型可能不能仅通过原子间成键情况判断出来，因此用户可以先手动指定部分原子的类型，
+# 再交给程序来自动识别剩下原子的类型。
+# 注意2：原子类型中不能包含以下特殊字符：_, *, --, [, ], | , :
+H:SPC.H {O:SPC.O}
+O:SPC.O {H H}
+C:CH3-  {C H H H}
+C:-CH2- {H H C C}
+C:>CH-  {H C C C}
+C:>C<   {C C C C}
+C:CH4   {H H H H}
+H:H-C   {C:CH3-}
+H:H-C   {C:-CH2-}
+H:H-C   {C:>CH-}
+H:H-C   {C:CH4}
+C:R2-C= {C{* *} C{* * *} C{* * *}} # must bond to two sp3 C and one sp2 C
+C:RH-C= {H C{* *} C{* * *}}
+C:H2-C= {H H C{* *}}
+H:H-C=  {C:RH-C=}
+H:H-C=  {C:H2-C=}
+C:C.ar  {* C{C *} C{C *}}
+C:C.fus {C C{* *} C{* *}}   # 必须出现在上条规则之后，指联苯(石墨烯)上的C，上面没有氢取代
+H:H.ar  {C:C.ar}
+
+# For Amide 酰胺
+C:177  {O{} N{* *} *}  # amide >C=ONH2
+O:178  {C:177}         # amide O=C(NH2)<
+N:179  {C{O *} H H}    # amide type >CO(NH2)
+N:180  {C{O *} H C}    # amide type >CO(NHR)
+N:181  {C{O *} C C}    # amide type >CO(NR2)
+H:182  {N:179}         # amide H in type >CO(NH2)
+H:183  {N:180}         # amide H in type >CO(NHR)
+C:RH-C= {H C{* *} C{O N}} # 例如丙烯酰胺中，与酰基相连的双键O。按普通双键C处理
+
+# 羧酸-COOH 及羧酸负离子 -COO-
+C:209 {O{*TERMINAL*} O{H} *}          # C  in -COOH     {*TERMINAL*}表示这是端点原子，上面不可以再连有键
+O:210 {C{O{H} *}}                     # =O in -COOH
+O:211 {C{O{*TERMINAL*} *} H}          # -OH in -COOH
+H:212 {O:211}                         # H in in -COOH
+C:213 {O{*TERMINAL*} O{*TERMINAL*} *}    # C in COO- 离子，+0.7
+O:214 {C:213}               # O in COO- 离子，-0.8
+# 对COO-，C与两个O的电荷之和为-0.9，还有-0.1的电荷是分到了羧基所在的C上。因此分别定义以下规则（需在正常的伯仲叔季C之后）
+# 此规则适用于例如水溶液中的聚丙烯酸，但对于丙烯酸单体，OPLSAA中却没有专门定义的"烯酸阴离子"（H2C=CHCOO-）的规则。
+# 因此按现有规则识别后，烯酸（单体）上的电荷是不对的。
+C:215 {H H H C{O{*TERMINAL*} O{*TERMINAL*}}}     # "Carboxylate CH3-COO-"  COO-阴离子所连的伯碳
+C:216 {H H C C{O{*TERMINAL*} O{*TERMINAL*}}}     # "Carboxylate RCH2-COO-" COO-阴离子所连的仲碳
+C:217 {H C C C{O{*TERMINAL*} O{*TERMINAL*}}}     # "Carboxylate R2CH-COO-" COO-阴离子所连的仲碳
+C:218 {C C C C{O{*TERMINAL*} O{*TERMINAL*}}}     # "Carboxylate R3C-COO-"  COO-阴离子所连的季碳
+H:H-C {C:215}
+H:H-C {C:216}
+H:H-C {C:217}
+C:RH-C=    {H C{* *} C:209}        # 烯酸上与COOH相连的C。这里没做特殊处理，直接按普通的=C来处理了
+C:acrylate {H C{* *} C:213}        # 烯酸上与COO-相连的C。例如丙烯酸钠的中心C。OPLS里没有对应原子，只能参照RH-C=同样的参数，charge改-0.1
+H:H-C=     {C:acrylate}
+
+
+N:231  {C C C C}                    # R4N+
+C:888  {H H H N{C C C}}             # CH3-NR3+
+C:889  {H H C N{C C C}}             # RCH2-NR3+
+C:890  {H C C N{C C C}}             # R2CH-NR3+
+C:891  {C C C N{C C C}}             # R3C-NR3+
+H:892  {C:888}                      # 888-891上的氢
+H:892  {C:889}                      # 888-891上的氢
+H:892  {C:890}                      # 888-891上的氢
+H:892  {C:891}                      # 888-891上的氢

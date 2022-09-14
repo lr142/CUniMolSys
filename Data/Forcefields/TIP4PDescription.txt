@@ -1,0 +1,27 @@
+ATOMS {
+    TIP4P.O --       15.9994 0.00      # 65
+    TIP4P.H --       1.008   0.52      # 66
+    TIP4P.M --       1e-30   -1.04     # 67
+}
+
+PAIRWISE {
+    pair_coeff TIP4P.O TIP4P.O  0.155 3.15365
+    pair_coeff TIP4P.H TIP4P.H  0.0   0.0
+    pair_coeff TIP4P.M TIP4P.M  0.0   0.0
+}
+
+BONDS{
+    TIP4P.O TIP4P.H   bond_coeff --  600.0 0.9572
+    TIP4P.O TIP4P.M   bond_coeff --  900.0 0.15
+}
+
+ANGLES{
+    TIP4P.H TIP4P.O TIP4P.H       angle_coeff --  75.0 104.52
+    TIP4P.H TIP4P.O TIP4P.M       angle_coeff --  50.0 52.26
+}
+
+DIHEDRALS{
+}
+
+IMPROPERS{
+}

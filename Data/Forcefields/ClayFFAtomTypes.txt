@@ -1,0 +1,84 @@
+H:ho {O:oh}
+H:ho {O:ob}
+H:ho {O:obts}
+H:ho {O:obss}
+H:ho {O:ohs}
+
+O:oh {H Si}
+O:oh {H Al}
+O:oh {H Mg}
+O:oh {H Fe}
+
+O:ob {Si Si}
+O:ob {Si Al}
+O:ob {Si Mg}
+O:ob {Si Fe}
+O:ob {Al Al}
+O:ob {Al Mg}
+O:ob {Al Fe}
+O:ob {Mg Mg}
+O:ob {Mg Fe}
+O:ob {Fe Fe}
+O:ob {Si Si *}
+O:ob {Si Al *}
+O:ob {Si Mg *}
+O:ob {Si Fe *}
+O:ob {Al Al *}
+O:ob {Al Mg *}
+O:ob {Al Fe *}
+O:ob {Mg Mg *}
+O:ob {Mg Fe *}
+O:ob {Fe Fe *}
+
+# 即是桥H，同时又连有H的O原子，在蒙脱石有特有。对它的判断要放在ob后面
+O:oh {Si Si H}
+O:oh {Si Al H}
+O:oh {Si Mg H}
+O:oh {Si Fe H}
+O:oh {Al Al H}
+O:oh {Al Mg H}
+O:oh {Al Fe H}
+O:oh {Mg Mg H}
+O:oh {Mg Fe H}
+O:oh {Fe Fe H}
+
+#   obos, obts obss ohs 判断要依赖于具体的体系。比如对于蒙脱石，出现 at 或 mgo 即为substitution, 与它们相连的O就分别是 obts 和obos
+#   建议针对具体的体系，写出特定的规则
+
+
+Si:st {* * * *}
+Al:ao {* * * * *}    # 边缘Al，可能只有5配位，也算ao
+Al:ao {* * * * * *}
+Al:at {* * * *}
+
+Mg:mgo {* * * * *} # mgo, mgh, cao, cah的定义比较模糊。这里按我的理解来解释。5或6配位的Ca，Mg按o来判定，小于等于4配位，且连有OH的算h
+Mg:mgo {* * * * * *}
+Mg:mgh {O{H} *}
+Mg:mgh {O{H} * *}
+Mg:mgh {O{H} * * *}
+Ca:cao {* * * * *} # 见上面的解释
+Ca:cao {* * * * * *}
+Ca:cah {O{H} *}
+Ca:cah {O{H} * *}
+Ca:cah {O{H} * * *}
+
+Fe:feo {* * * * * *}
+Li:lio {* * * * * *}
+Na:Na {}
+K:K {}
+Cs:Cs {}
+Ca:Ca {}
+Ba:Ba {}
+Cl:Cl {}
+
+#   以下对于 obos, obts, ohs 的判断只适用于蒙脱石： 与tetra Al配位的是 obts，与 octahedral Mg配位的是 obos
+# obss 是指在1. 表层上，与两个tetra Al配体；2. 在中间层上，与一个tetra Al，一个Octa Mg配位; 3. 在中间层上，与两个Octa Mg配位;
+O:obts {Al{* * *} Si}
+O:obts {Al{* * *} Al Al}
+O:obos {Mg{* * * * *} Al Si}
+O:ohs  {Mg{* * * * *} H Al}
+O:obss {Al{* * *} Al{* * *}}
+O:obss {Al{* * *} Mg{* * * * *} Al{* * * * * *}}
+O:obss {Si{* * *} Mg{* * * * *} Mg{* * * * * *}}
+
+

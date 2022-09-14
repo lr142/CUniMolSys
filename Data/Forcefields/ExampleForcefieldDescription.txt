@@ -1,0 +1,150 @@
+# 该文件是一个力场参数描述文件，供UniversalMolecularSystem程序读取。
+# 符号#表示注释，每行中，#后出现的所有内容均会被忽略
+# 文件包含几个Section，由 Keyword {  # Keyword后面有无空格均可。但{不能写在下一行，且}必须单占一行。
+#    Contents ...
+# }
+# 的形式组成。主要包括以下由以下几个Keyword定义的Section（Keyword大小写无所谓）：
+# 1. FUNCTIONAL： 力场的函数形式
+# 2. ATOMS: 原子种类，质量，电荷等
+# 3. PAIRWISE：成对作用参数
+# 4. BONDS：键种类和键参数
+# 5. ANGLES：键角种类和键参数
+# 6. DIHEDRALS：二面角种类和参数
+# 7. IMPROPERS: 非正常二面角种类和参数
+# 8. MANYBODIES: 多体作用种类和参数
+# 各Section在文件中出现的顺序可以随意，除FUNCTIONAL与ATOMS，PAIRWISE外，也不要求每个Section必须出现。且每个Section可以出现多次
+# 各Section内部具体的格式要求见下面的例子
+
+FUNCTIONAL{
+# 力场的函数形式。在目前的实现中，这里的字段会被原封不动地复制到LAMMPS程序的输入文件中，故它们需符合LAMMPS格式，
+    units real
+    atom_style full
+    bond_style harmonic
+    angle_style harmonic
+    dihedral_style opls
+    improper_style harmonic
+    pair_modify mix geometric
+    pair_style lj/cut/coul/long 11.0 11.0
+    special_bonds lj/coul 0.0 0.0 0.5
+    kspace_style pppm 0.0001
+}
+
+ATOMS {
+# 每一行代表一个原子种类
+# 各关键字依次是 种类名称 成键时使用的种类名称 质量 电荷
+# 其中设置"成键时使用的种类名称"是因为在某些力场中，几种不同类型的原子可以形成同种类型的键。
+# 如果没有这种要求，该字段填"--"，程序会直接用原子种类名作为成键时使用的种类名。
+    SPC.O --       15.9994 -0.82     # Type 76 in OPLSAA
+    SPC.H --       1.008   0.41      # 77
+    CH3-  Csingle  12.011  -0.18     # 80, b013
+    -CH2- Csingle  12.011 -0.12      # 81, b013
+    >CH-  Csingle  12.011 -0.06      # 82, b013
+    CH4   Csingle  12.011 -0.24      # 83, b013
+    >C<   Csingle  12.011  0.00      # 84, b013
+    H-C   Hsingle  1.008   0.06      # 85 Alkane H-C, b046
+    R2-C= Cdouble  12.011  0.00      # 86 Alkene R2-C=, b047
+    RH-C= Cdouble  12.011 -0.115     # 87 Alkene RH-C=, b047
+    H2-C= Cdouble  12.011 -0.23      # 88 Alkene H2-C=, b047
+    H-C=  Hsingle  1.008  -0.115     # 89 Alkene H-C=, b046
+    C.ar  --       12.011 -0.115     # 90 "Aromatic C", b048
+    H.ar  --       1.008   0.115     # 91 "Aromatic H-C", b049
+    C:C.ar.fuse C.ar 12.011  0.0     # 92 "Naphthalene Fusion C", b
+}
+
+PAIRWISE {
+# 每一行代表一个Pairwise种类。格式与在LAMMPS中的输入类似。程序在处理并生成LAMMPS输入文件时，会将其中的原子种类替换成数字序号
+# 注：这里的原子类型必须与原子类型识别规则中定义的原子类型一致。
+    pair_coeff SPC.O SPC.O  0.1554 3.16557
+    pair_coeff SPC.H SPC.H  0.0 0.0
+    pair_coeff CH3-  CH3-   0.066 3.5
+    pair_coeff -CH2- -CH2-  0.066 3.5
+    pair_coeff >CH-  >CH-   0.066 3.5
+    pair_coeff CH4   CH4    0.066 3.5
+    pair_coeff >C<   >C<    0.066 3.5
+    pair_coeff H-C   H-C    0.03  2.5
+    pair_coeff R2-C= R2-C=  0.076 3.55
+    pair_coeff RH-C= RH-C=  0.076 3.55
+    pair_coeff H2-C= H2-C=  0.076 3.55
+    pair_coeff H-C=  H-C=   0.03 2.42
+    pair_coeff C.ar  C.ar   0.07 3.55
+    pair_coeff H.ar  H.ar   0.03 2.42
+    pair_coeff C.ar.fuse  C.ar.fuse   0.07 3.55
+}
+
+BONDS{
+# 每一行代表一个BOND种类。前两个字段是成键的两种原子类型。
+# 第三个字段一定是bond_coeff。从bond_coeff开始，是一串以LAMMPS格式书写的，用于设置键参数的的命令。
+# 在LAMMPS中，要求在设置键参数时给出键的名称，但用户可能不需要为该种键取个名字，此时可用"--"占位，程序会在内部按两个成键原子的类型生成
+# 一个名字：type1_type2，并在输出LAMMPS文件时将其替换成数字序号
+# 注意该处出现的名字，应该是"原子参与成键时使用的种类名"，除非用户没有指定，则使用原子本身的种类名。
+    SPC.O SPC.H bond_coeff --  554.1349 1.0
+    Csingle Csingle bond_coeff --  268.0 1.529  # 013_013
+    Csingle Hsingle bond_coeff --  340.0 1.09   # 013_046
+    Csingle Cdouble bond_coeff --  317.0 1.51   # 013_047
+    Hsingle Cdouble bond_coeff --  340.0 1.08   # 046_047
+    Cdouble Cdouble bond_coeff --  549.0 1.34   # 047-047
+    C.ar    C.ar    bond_coeff --  469.0 1.4    # 048-048
+    C.ar    H.ar    bond_coeff --  367.0 1.08   # 048-049
+    Csingle C.ar    bond_coeff --  317.0 1.51   # 013_048
+    Cdouble C.ar    bond_coeff --  427.0 1.433  # 047_048
+}
+
+ANGLES{
+# 每一行代表一个ANGLE种类。前三个字段是成键角的三种原子类型。
+# 第四个字段一定是angle_coeff。从angle_coeff开始，是一串以LAMMPS格式书写的，用于设置键角参数的的命令。
+# 在LAMMPS中，要求在设置键参数时给出键角的名称，但用户可能不需要为该种键取个名字，此时可用"--"占位，程序会在内部按三个成键原子的类型生成
+# 一个名字：type1_type2_type3，并在输出LAMMPS文件时将其替换成数字序号
+# 注意该处出现的名字，应该是"原子参与成键时使用的种类名"，若用户没有指定，则使用原子本身的种类名。
+# ANGLES, DIHEDRAL, IMPROPERS支持基于通配符 * 的识别规则。且*越多，规则的优先级越低。例如，如果存在两条规则同时
+# 适用于某个键/二面角，那么*较少的规则会被优先适配。如果同时存在两条优先级相同的规则，则后出现的规则优先。
+    SPC.H SPC.O SPC.H       angle_coeff --  45.7696 109.47
+    Csingle Csingle Csingle angle_coeff --  58.35 112.7  # 013_013_013
+    Hsingle Csingle Hsingle angle_coeff --  33.0 107.8  # 046_013_046
+    Csingle Csingle Hsingle angle_coeff --  37.5 110.7  # 013_013_046
+    Hsingle Csingle Cdouble angle_coeff --  35.0 109.5  # 046_013_047
+    Cdouble Csingle Cdouble angle_coeff --  63.0 112.4  # 047_013_047
+    Csingle Cdouble Cdouble angle_coeff --  70.0 124.0  # 013_047_047
+    Hsingle Csingle C.ar    angle_coeff --  35.0 109.5  # 046_013_048
+    Csingle Csingle C.ar    angle_coeff --  63.0 114.0  # 013_013_048
+    Csingle Cdouble C.ar    angle_coeff --  85.0 119.7  # 013_047_048
+    C.ar    C.ar    C.ar    angle_coeff --  63.0 120.0  # 048_048_048
+    C.ar    C.ar    H.ar    angle_coeff --  35.0 120.0  # 048_048_049
+}
+
+DIHEDRALS{
+# 每一行代表一个DIHEDRAL种类。前四个字段是成键角的四种原子类型。
+# 第五个字段一定是dihedral_coeff。从dihedral_coeff开始，是一串以LAMMPS格式书写的，用于设置二面角参数的的命令。
+# 在LAMMPS中，要求在设置键参数时给出二面角的名称，但用户可能不需要为该种二面角取个名字，此时可用"--"占位，程序会在内部按四个成键原子的类型生成
+# 一个名字：type1_type2_type3_type4，并在输出LAMMPS文件时将其替换成数字序号
+# 注意该处出现的名字，应该是"原子参与成键时使用的种类名"，若用户没有指定，则使用原子本身的种类名。
+    Csingle Csingle Csingle Csingle dihedral_coeff --  1.3 -0.05 0.2 0.0       # 013_013_013_013
+    CSingle Csingle Csingle Hsingle dihedral_coeff --  0.0 0.0 0.3 0.0         # 013_013_013_046
+    Hsingle Csingle Csingle Hsingle dihedral_coeff --  0.0 0.0 0.3 0.0         # 046_013_013_046
+    Hsingle Csingle Csingle Cdouble dihedral_coeff --  0.0 0.0 0.366 0.0       # 046_013_013_047
+    Hsingle Csingle Csingle C.ar    dihedral_coeff --  0.0 0.0 0.462 0.0       # 046_013_013_048
+    Csingle Cdouble C.ar    C.ar    dihedral_coeff --  0.205 -0.531 0.0 0.0    # 013_047_048_048
+    Hsingle Cdouble C.ar    C.ar    dihedral_coeff --  0.0 0.0 -0.372 0.0      # 046_047_048_048
+    Hsingle Cdouble Cdouble Hsingle dihedral_coeff --   0.0 14.0 0.0 0.0       # 046_047_047_046
+    Hsingle Coublde Cdouble C.ar    dihedral_coeff --   0.0 14.0 0.0 0.0       # 046_047_047_048
+    Csingle Cdouble C.ar    C.ar    dihedral_coeff --   0.205 -0.531 0.0 0.0   # 013_047_048_048
+    Hsingle Cdouble C.ar    C.ar    dihedral_coeff --   0.0 0.0 -0.372 0.0     # 046_047_048_048
+    Cdouble Cdouble C.ar    C.ar    dihedral_coeff --   1.241 3.353 -0.286 0.0 # 047_047_048_048
+    *       C.ar    C.ar    *       dihedral_coeff --   0.0 7.25 0.0 0.0       # *_048_048_*
+    # 下两条规则与上一条是重复的。用于测试程序对于规则优先级的判定
+    H.ar    C.ar    C.ar    C.ar    dihedral_coeff --   0.0 7.25 0.0 0.0       # 049_048_048_048
+    H.ar    C.ar    C.ar    *       dihedral_coeff --   0.0 7.25 0.0 0.0       # 049_048_048_*
+}
+
+IMPROPERS{
+# 每一行代表一个IMPROPER种类。前四个字段是成非正常二面角的四种原子类型I,J,K,L。
+# 按LAMMPS手册的意思，I是中心原子，存在I-J,I-K,I-L键，此improper度量的是平面IJK与JKL的角度，或I偏离平面JKL的程度。
+# 典型的非正常二面角如双键碳所在的平面，苯环H与苯环共平面所形成的非正常二面角。
+# 第五个字段一定是improper_coeff。从improper_coeff开始，是一串以LAMMPS格式书写的，用于设置二面角参数的的命令。
+# 在LAMMPS中，要求在设置键参数时给出非正常二面角的名称，但用户可能不需要为该种非正常二面角取个名字，此时可用"--"占位，
+# 程序会在内部按四个成键原子的类型生成一个名字：type1_type2_type3_type4，并在输出LAMMPS文件时将其替换成数字序号
+# 注意该处出现的名字，应该是"原子参与成键时使用的种类名"，若用户没有指定，则使用原子本身的种类名。
+# 可以使用通配符 *
+# 一个Improper应该只被计算一次，而不是3!=6次
+    Cdouble * * *       improper_coeff --  15.0 0.0              # X_X_047_X, moltemplate应该有错
+    C.ar    * * *       improper_coeff --   1.0 0.0              # X_X_049_X
+}

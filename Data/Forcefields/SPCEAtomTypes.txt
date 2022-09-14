@@ -1,0 +1,2 @@
+H:SPCE.H {O:SPCE.O}
+O:SPCE.O {H H}

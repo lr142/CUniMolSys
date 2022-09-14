@@ -5,6 +5,11 @@ set(CMAKE_CXX_STANDARD 17)
 # Enable GoogleTests
 add_subdirectory(googletest)
 
+# Configure the DataFilesPath header "resources.h" from "resources.in"
+set(_DATAFILESPATH_ \"${CMAKE_SOURCE_DIR}/Data\")
+message("${_DATAFILESPATH_}")
+configure_file(resources.in ${CMAKE_SOURCE_DIR}/resources.h)
+
 # Automatically find all .cpp and .h files in current folder
 file(GLOB SRCS ${CMAKE_CURRENT_LIST_DIR}/*.cpp)
 file(GLOB HEADERS ${CMAKE_CURRENT_LIST_DIR}/*.h)
@@ -16,8 +21,8 @@ foreach(source IN LISTS SRCS)
         set(LIBSOURCE "${LIBSOURCE};${source}")
     endif()
 endforeach()
-message(${LIBSOURCE})
-message(${HEADERS})
+#message(${LIBSOURCE})
+#message(${HEADERS})
 
 # Copy *.h to ./include
 foreach(header IN LISTS HEADERS)

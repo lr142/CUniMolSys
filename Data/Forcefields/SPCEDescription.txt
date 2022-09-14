@@ -1,0 +1,33 @@
+FUNCTIONAL{
+# 力场的函数形式。在目前的实现中，这里的字段会被原封不动地复制到LAMMPS程序的输入文件中，故它们需符合LAMMPS格式，
+    units real
+    atom_style full
+    bond_style harmonic
+    angle_style harmonic
+    dihedral_style opls
+    improper_style harmonic
+    pair_style lj/cut/coul/long 11.0 11.0
+    pair_modify mix geometric
+    special_bonds lj/coul 0.0 0.0 0.5
+    kspace_style pppm 0.0001
+}
+
+ATOMS {
+    SPCE.O --       15.9994 -0.8476
+    SPCE.H --       1.008    0.4238
+}
+
+PAIRWISE {
+# 每一行代表一个Pairwise种类。格式与在LAMMPS中的输入类似。程序在处理并生成LAMMPS输入文件时，会将其中的原子种类替换成数字序号
+# 注：这里的原子类型必须与原子类型识别规则中定义的原子类型一致。
+    pair_coeff SPCE.O SPCE.O  0.1554 3.16557
+    pair_coeff SPCE.H SPCE.H  0.0 0.0
+}
+
+BONDS{
+    SPCE.O   SPCE.H   bond_coeff --  554.1349 1.0
+}
+
+ANGLES{
+    SPCE.H SPCE.O SPCE.H       angle_coeff --  45.7696 109.47
+}
