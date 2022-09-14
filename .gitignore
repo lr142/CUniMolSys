@@ -5,6 +5,8 @@
 # CMakes
 cmake-build*
 build
+include/*.h
+lib/*.a
 
 # Common Ouputs of Test Examples
 dump*

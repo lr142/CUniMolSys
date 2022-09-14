@@ -2,5 +2,35 @@ cmake_minimum_required(VERSION 3.23)
 project(CUniMolSys)
 set(CMAKE_CXX_STANDARD 17)
 
+# Enable GoogleTests
 add_subdirectory(googletest)
+
+# Automatically find all .cpp and .h files in current folder
+file(GLOB SRCS ${CMAKE_CURRENT_LIST_DIR}/*.cpp)
+file(GLOB HEADERS ${CMAKE_CURRENT_LIST_DIR}/*.h)
+
+# exclude main.cpp from LIBSOURCE
+set(LIBSOURCE "")
+foreach(source IN LISTS SRCS)
+    if(NOT source MATCHES "main.cpp")
+        set(LIBSOURCE "${LIBSOURCE};${source}")
+    endif()
+endforeach()
+message(${LIBSOURCE})
+message(${HEADERS})
+
+# Copy *.h to ./include
+foreach(header IN LISTS HEADERS)
+    execute_process(COMMAND ${CMAKE_COMMAND} -E copy ${header} ${CMAKE_CURRENT_LIST_DIR}/include/)
+endforeach()
+
+set(LIBNAME cunimolsys)
+add_library(${LIBNAME} STATIC "${LIBSOURCE}" "${HEADERS}")
+set_target_properties(${LIBNAME} PROPERTIES ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/lib)
+
+add_executable(main main.cpp)
+target_link_libraries(main ${LIBNAME})
+
+
+# Add All Tests
 add_subdirectory(UnitTests)

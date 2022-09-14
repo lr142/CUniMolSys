@@ -1,7 +1,6 @@
-#include "utility.h"
 #include <iostream>
 
 int main() {
-    f();
+    std::cout << "Hello, World!" << std::endl;
     return 0;
 }
