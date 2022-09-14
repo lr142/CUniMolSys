@@ -7,6 +7,9 @@ public:
     ~PeriodicTable();
     std::string AtomicNumberToElement(int atomicNumber);
     int ElementToAtomicNumber(std::string element);
-    double
+    double f();
 };
+
+void f();
+int add(int a,int b);
 #endif //CUNIMOLSYS_UTILITY_H
