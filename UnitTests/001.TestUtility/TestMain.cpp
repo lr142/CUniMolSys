@@ -2,6 +2,7 @@
 #include "gtest/gtest.h"
 #include "utility.h"
 #include <vector>
+#include <fstream>
 using namespace std;
 
 TEST(StringFunctions,split){
@@ -31,4 +32,97 @@ TEST(StringFunctions,tok){
     EXPECT_EQ(StringTok("AC BC","  AC    "),result);
     result = make_pair("","");
     EXPECT_EQ(StringTok("ACBC","  AB    "),result);
+}
+TEST(StringFunctions,other){
+    EXPECT_EQ(StringToUpper("  abc"),"  ABC");
+    EXPECT_EQ(StringToUpper("1 21AaBBcDea"),"1 21AABBCDEA");
+    EXPECT_EQ(StringRemoveComment("1 21AaBBcD#ea"),"1 21AaBBcD");
+    EXPECT_EQ(StringRemoveComment("# da"),"");
+    EXPECT_EQ(StringRemoveComment(" # da"),"");
+    EXPECT_EQ(StringRemoveComment("ab ### da"),"ab");
+}
+TEST(ErrorHandler,tok){
+    error("Show some error message 1",false);
+    error.TurnOff();
+    error("Show some error message 2",false);
+    error.TurnOn();
+    error("Show some error message 3",false);
+    error.TurnOff();
+    ofstream ofs("dump.txt");
+    error.SetOutput(ofs);
+    error("Show some error message 4",false);
+    error.SetOutput(cout);
+    error.TurnOn();
+    error("Show some error message 5",false);
+
+    output("Show some output message 1");
+    output.TurnOff();
+    output("Show some output message 2");
+    output.TurnOn();
+    output("Show some output message 3");
+    output.TurnOff();
+    output.SetOutput(ofs);
+    output("Show some output message 4");
+    output.SetOutput(cout);
+    output.TurnOn();
+    output("Show some output message 5");
+}
+
+TEST(TestPeriodicTable,case1){
+    EXPECT_EQ(PeriodicTable::AtomicNumberToElement(1),"H");
+    EXPECT_EQ(PeriodicTable::AtomicNumberToElement(10),"Ne");
+    EXPECT_EQ(PeriodicTable::ElementToAtomicNumber("O"),8);
+    EXPECT_EQ(PeriodicTable::ElementToAtomicNumber("LR"),103);
+    EXPECT_NEAR(PeriodicTable::AtomicWeight("LR"),266,1e-4);
+    EXPECT_NEAR(PeriodicTable::AtomicWeight("pT"),195.08,1e-4);
+    EXPECT_NEAR(PeriodicTable::AtomicWeight("M"),1e-30,1e-4);
+    EXPECT_EQ(PeriodicTable::PossibleElementWithGivenWeight(23.14),"Na");
+    EXPECT_EQ(PeriodicTable::PossibleElementWithGivenWeight(12.3),"C");
+    EXPECT_EQ(PeriodicTable::PossibleElementWithGivenWeight(0),"M");
+}
+
+TEST(XYZ,case1){
+    XYZ v1 = {1.0,2,3};
+    XYZ v2(4,5,6.0);
+    double coords[] = {5,7,9};
+    double *pD = coords;
+    XYZ v3 = pD;
+    EXPECT_EQ(v1[0],1.0);
+    EXPECT_EQ(v1[1],2.0);
+    EXPECT_EQ(v1[2],3.0);
+    EXPECT_TRUE(v1+v2==v3);
+    EXPECT_EQ(v1-v2,XYZ(-3,-3,-3));
+    EXPECT_NEAR(XYZDot(v1, v2), 32.0, 1e-6);
+    EXPECT_TRUE(v3*1.1==XYZ({5.5,7.7,9.9}));
+
+    XYZ v4 = {1.5, 2.9, -0.8};
+    EXPECT_TRUE(v4.Normalized()==XYZ(0.446223, 0.862698, -0.237986));
+    //cout<<v4.Normalized()<<endl;
+    v4 = {1.5, 2.9, -0.8};
+    v4-={0.5,0.4,1.2};
+    EXPECT_TRUE(v4==XYZ(1.0,2.5,-2.0));
+    v4+={0.5,0.4,1.2};
+    EXPECT_TRUE(v4==XYZ(1.5, 2.9, -0.8));
+
+    XYZ v5 = {0,0,0.0};
+    EXPECT_ANY_THROW(v5.Normalized());
+
+    XYZ v6 = {1.5,6.2,-9.4};
+    XYZ v7 = {2,8.5,-1};
+    XYZ v8 = {73.7,-17.3,0.35};
+    EXPECT_TRUE(XYZCross(v6, v7) == v8);
+}
+TEST(XYZ,rotate){
+    XYZ coords[4];
+    coords[0] = {1,0,0};
+    coords[1] = {0,1,0};
+    coords[2] = {0,0,1};
+    coords[3] = {1,1,1};
+    XYZ direction = {0,0,1};
+    XYZRotate(coords,4,120,{100,100,100});
+    // x-->z, y-->x, z-->y,  [111] is unchanged.
+    EXPECT_TRUE(coords[0]==XYZ(0,0,1));
+    EXPECT_TRUE(coords[1]==XYZ(1,0,0));
+    EXPECT_TRUE(coords[2]==XYZ(0,1,0));
+    EXPECT_TRUE(coords[3]==XYZ(1,1,1));
 }

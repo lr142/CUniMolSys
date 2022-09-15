@@ -1,5 +1,11 @@
 project(CUniMolSys)
 set(CMAKE_CXX_STANDARD 17)
 
-add_subdirectory(000.ExampleTest)
-add_subdirectory(001.TestUtility)
+file(GLOB subfolders LIST_DIRECTORIES true *)
+#message("${subfolders}")
+foreach(folder IN LISTS subfolders)
+    if(IS_DIRECTORY ${folder})
+        message("Add testing cases in ${folder}")
+        add_subdirectory(${folder})
+    endif()
+endforeach()

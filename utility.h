@@ -3,6 +3,7 @@
 #include "resources.h"
 #include <iostream>
 #include <vector>
+#include <map>
 using std::vector;
 using std::string;
 using std::pair;
@@ -10,7 +11,7 @@ using std::pair;
 // Resource Files Path
 static string DATAFILESPATH=_DATAFILESPATH_;
 
-// String Manipulation
+// String Manipulations
 
 // Split the string according to the separator, returns a vector of string
 vector<string> StringSplit(string str,char delimitator=' ');
@@ -22,57 +23,83 @@ bool StringStartsWith(string str,string pattern);
 # the given token. For example StringTok("xyz = 543",'=') returns ("xyz" and "543"). (Both parts are with
 # beginning and ending blank spaces striped away. If no such token is found, it returns pair<"","">. */
 pair<string,string> StringTok(string str, string token);
+string StringToUpper(string str);
+string StringToLower(string str);
+string StringToCapitalized(string str);
+string StringRemoveComment(string str);
 
+// This class controls how to deal with stdout and stderr messages.
+// It has two child classes: ErrorHandler, OutputHandler
+// In a possible GUI version, these messages can be redirected to the Window.
+class ErrorAndOutputHandler{
+public:
+    ErrorAndOutputHandler();
+    ~ErrorAndOutputHandler() = default;
+    void SetOutput(std::ostream &ostream);
+    void TurnOn();
+    void TurnOff();
+protected:
+    bool onOffState_;
+    std::ostream *pOutput_;
+};
 
-// Singleton Object, Lazy Initialization. User can only access through static members
+// ErrorHandler,
+class ErrorHandler:public ErrorAndOutputHandler{
+public:
+    ErrorHandler():ErrorAndOutputHandler(){}
+    void operator()(string msg,bool fatal=true);
+};
+// OutputHandler,
+class OutputHandler:public ErrorAndOutputHandler{
+public:
+    OutputHandler():ErrorAndOutputHandler(){}
+    void operator()(string msg,bool newline=true);
+};
+// The Singleton Objects
+static ErrorHandler error;
+static OutputHandler output;
+
+// Singleton Object, Initialized only once. User can only access through static members
 class PeriodicTable{
 public:
     static string AtomicNumberToElement(int atomicNumber);
     static int ElementToAtomicNumber(string element);
     static double AtomicWeight(string element);
+    static string PossibleElementWithGivenWeight(double weight);
 protected:
     PeriodicTable();
     ~PeriodicTable() = default;
     static PeriodicTable* getInstance_();
     vector<string> elements_;
-    vector<double> atomicWeights_;
+    std::map<string,double> atomicWeights_;
 };
 
-//class PeriodicTable:
-//    def __init__(self):
-//        # M is the dummy atom
-//        self.elements = "M H He "\
-//        "Li Be B C N O F Ne "\
-//        "Na Mg Al Si P S Cl Ar "\
-//        "K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr "\
-//        "Rb Sr Y Zr Nb Mo Tc Ru Rh Pd Ag Cd In Sn Sb Te I Xe "\
-//        "Cs Ba La Ce Pr Nd Pm Sm Eu Gd Tb Dy Ho Er Tm Yb Lu Hf Ta W Re Os Ir Pt Au Hg Tl Pb Bi Po At Rn "\
-//        "Fr Ra Ac Th Pa U Np Pu Am Cm Bk Cf Es Fm Md No Lr Rf Db Sg Bh Hs Mt Ds Rg Uub Uut Uuq Uup Uuh Uus Uuo";
-//        self.elements = self.elements.split()
-//        self.atomicweights = {}
-//        with open(os.path.join(DATAFILESPATH,"atomicweights.csv"),"r") as awfile:
-//            lines = awfile.readlines()
-//            for l in lines:
-//                words = l.strip().split(",")
-//                ele = words[0].upper()
-//                weight = float(words[1])
-//                self.atomicweights[ele] = weight
-//
-//    def AtomicNumberToElement(self,i):
-//        if i >= len(self.elements):
-//            i = 0
-//        return self.elements[i]
-//    def ElementToAtomicNumber(self,element):
-//        for i in range(len(self.elements)):
-//            if element == self.elements[i]:
-//                return i
-//        return -1
-//    def AtomicWeight(self,element:str):
-//        if element.upper() in self.atomicweights:
-//            return self.atomicweights[element.upper()]
-//        else:
-//            return 0
-
-void f();
-int add(int a,int b);
+// Mathematical Functions
+class XYZ{
+public:
+    XYZ();
+    XYZ(double x,double y,double z);
+    XYZ(const double xyzs[3]);
+    XYZ(const XYZ& otherXYZ) = default;
+    double& operator[](int index);
+    inline double* ptr() {return xyz;}
+    XYZ& operator=(const XYZ& otherXYZ);
+    XYZ& operator=(const double xyzs[3]);
+    double NormSquared();
+    double Norm();
+    XYZ& Normalized();
+    XYZ& operator+=(XYZ v);
+    XYZ& operator-=(XYZ v);
+    XYZ& operator*=(double a);
+    friend XYZ operator+(const XYZ& v1, const XYZ& v2);
+    friend XYZ operator-(const XYZ& v1, const XYZ& v2);
+    friend XYZ operator*(const XYZ& v, double a);
+    friend double XYZDot(const XYZ &v1, const XYZ &v2);
+    friend XYZ XYZCross(const XYZ &v1, const XYZ &v2);
+    friend bool operator==(const XYZ& v1, const XYZ& v2);
+    friend std::ostream &operator<<(std::ostream &os, const XYZ &xyz);
+private:
+    double xyz[3];
+};
+void XYZRotate(XYZ* coords,int numAtoms,double degree_clockwise,XYZ axis);
 #endif //CUNIMOLSYS_UTILITY_H
