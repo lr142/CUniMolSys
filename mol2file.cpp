@@ -7,7 +7,7 @@ Mol2File::Mol2File(bool writeElementInsteadOfType): MolecularFile(){
 }
 
 bool Mol2File::Read(MolecularSystem &ms, string filename) {
-    ifstream ifs;
+    ifstream ifs(filename);
     if(!ifs)
         error("Can't open ["+filename+"] to read.");
     enum STATE{ATOM,BOND,OTHER,CRYSIN,MOLECULE};
@@ -162,5 +162,10 @@ void Mol2File::writeAMolecule(Molecule &mol, std::ofstream &ofs) {
 
         ofs<<a.serial<<" "<<a.name<<" "<<a.xyz[0]<<" "<<a.xyz[1]<<" "<<a.xyz[2]<<" "
         <<typeSection<<" "<<"0.0"<<" "<<"****"<<" "<<a.charge<<endl;
+    }
+    ofs<<"@<TRIPOS>BOND"<<endl;
+    for(int i=0;i<mol.BondsCount();i++){
+        auto pBond = mol.bonds[i];
+        ofs<<i+1<<" "<<pBond->atom1<<" "<<pBond->atom2<<" "<<pBond->type<<endl;
     }
 }

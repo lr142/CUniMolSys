@@ -114,7 +114,7 @@ void Boundary::SetUVW(double uvw[3][3]) {
     }
 }
 void Boundary::SetOrigin(XYZ origin) {
-    this->origin = origin;
+    this->origin_ = origin;
 }
 XYZ& Boundary::operator[](int index){
     if(index<0 || index>2)
@@ -127,13 +127,13 @@ void Boundary::SetLoHi(double lohi[3][2]){
     uvw[0] = {lohi[0][1]-lohi[0][0], 0, 0};
     uvw[1] = {0, lohi[1][1]-lohi[1][0], 0};
     uvw[2] = {0, 0, lohi[2][1]-lohi[2][0]};
-    origin = {lohi[0][0], lohi[1][0], lohi[2][0]};
+    origin_ = {lohi[0][0], lohi[1][0], lohi[2][0]};
 }
 void Boundary::GetLoHi(double lohi[3][2]){
     if(!Orthogonal())
         throw runtime_error("In Boundary::GetLoHi(), boundary not orthogonal!");
     for(int i=0;i<3;i++){
-        lohi[i][0] = origin[i];
+        lohi[i][0] = origin_[i];
         lohi[i][1] = lohi[i][0] + uvw[i][i];
     }
 }
@@ -145,12 +145,13 @@ void Boundary::GetUVW(double uvw[3][3]){
     }
 }
 bool Boundary::Periodic() {
-    return uvw[0]==XYZ(0,0,0) and uvw[1]==XYZ(0,0,0) and uvw[2]==XYZ(0,0,0);
+    bool non_periodic = uvw[0]==XYZ(0,0,0) and uvw[1]==XYZ(0,0,0) and uvw[2]==XYZ(0,0,0);
+    return !non_periodic;
 }
 string Boundary::Show(){
     ostringstream oss;
     oss<<"UVW: "<<(*this)[0]<<", "<<(*this)[1]<<", "<<(*this)[2]<<endl;
-    oss<<"Center: "<<origin<<endl;
+    oss << "Center: " << origin_ << endl;
     double lohi[3][2];
     GetLoHi(lohi);
     oss<<"LoHi: { ["<<lohi[0][0]<<", "<<lohi[0][1]<<"], ["
@@ -261,7 +262,7 @@ void MolecularSystem::RenumberAtomSerials(int startingGlobalSerial) {
     int runningAtomGlobalSerial = startingGlobalSerial;
     for(int iMol=0;iMol<MoleculesCount();iMol++){
         (*this)[iMol].serial = to_string(runningMolSerial++);
-        int runningAtomLocalSerial = 1;
+        int runningAtomLocalSerial = startingGlobalSerial;
         for(int iAtom=0;iAtom<(*this)[iMol].AtomsCount();iAtom++){
             (*this)[iMol][iAtom].serial = to_string(runningAtomLocalSerial++);
             (*this)[iMol][iAtom].globalSerial = to_string(runningAtomGlobalSerial++);
@@ -290,6 +291,9 @@ void MolecularSystem::RenumberAtomSerials(int startingGlobalSerial) {
     // Various functions
     SearchAtomByGlobalSerial("",true);
     SearchMoleculeBySerial("",true);
+}
+void MolecularSystem::DetectBonds(BondDetector *pDetector, bool flushCurrentBonds){
+    pDetector->Detect(*this,flushCurrentBonds);
 }
 void MolecularSystem::Clear(){
     molecules.clear();

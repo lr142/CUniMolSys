@@ -99,6 +99,7 @@ public:
 // Concrete bond detectors are implemented separately.
 // The Strategy design pattern is used here.
 class BondDetector{
+public:
     virtual void Detect(MolecularSystem &ms,bool flushCurrentBonds) = 0;
 };
 
@@ -106,9 +107,9 @@ class Boundary{
 /* # 边界条件。非周期性体系可设为None。对周期性系，可以使用以下两种惯例之一：
 # 1. 设为3x3的矩阵，代表u,v,w三个lattice向量。此惯例可以处理非Orthogonal的晶胞, 记录于boundaryInUVW
 # 2. 对orthogonal体系，特别是用于LAMMPS时，使用3x2矩阵，代表[[xlo,xhigh],[ylo,yhigh],[zlo,zhigh]]. 这种方式也是LAMMPSDATAFile
-# 读取文件时采用的表示方式。记录于 boundaryInLoHi。原点记录于 origin
+# 读取文件时采用的表示方式。记录于 boundaryInLoHi。原点记录于 origin_
 # 具体使用哪种惯例依调用者的需要而定。
-# 对orthogonal 体系， origin + boundaryInUVW <--> boundaryInLoHi可以互转 */
+# 对orthogonal 体系， origin_ + boundaryInUVW <--> boundaryInLoHi可以互转 */
 public:
     Boundary(bool orthogonal = true);
     inline bool Orthogonal(){return orthogonal_;}
@@ -116,6 +117,7 @@ public:
     void SetUVW(XYZ u,XYZ v,XYZ w);
     void SetUVW(double uvw[3][3]);
     void SetOrigin(XYZ origin);
+    inline XYZ GetOrigin(){return origin_;}
     XYZ& operator[](int index);
     void SetLoHi(double lohi[3][2]); // lohi is double[3][2]: {{xlo,xhi},{ylo,yhi},{zlo,zhi}}
     void GetLoHi(double lohi[3][2]);
@@ -128,7 +130,7 @@ public:
 private:
     bool orthogonal_;
     XYZ uvw[3];
-    XYZ origin;
+    XYZ origin_;
 };
 
 class MolecularSystem{
@@ -172,9 +174,7 @@ public:
     */
     inline void AddMolecule(const Molecule &mol){molecules.push_back(std::make_shared<Molecule>(mol));}
     void RenumberAtomSerials(int startingGlobalSerial=1);
-    void DetectBonds(BondDetector *pDetector,
-                     bool flushCurrentBonds=false,
-                     bool periodic = false);
+    void DetectBonds(BondDetector *pDetector,bool flushCurrentBonds=true);
     void Clear(); // Discard all molecules/atoms/bonds/trajectories
     inline bool Periodic(){return boundary.Periodic();}
     string Summary();
