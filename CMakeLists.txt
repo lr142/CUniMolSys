@@ -1,6 +1,15 @@
 cmake_minimum_required(VERSION 3.10)
 project(CUniMolSys)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
+
+if(${MSVC})
+    add_compile_options("/MT")
+    IF(CMAKE_BUILD_TYPE MATCHES Debug)
+        add_compile_options("/MTd")
+    else()
+        add_compile_options("/MT")
+    ENDIF()
+endif()
 
 # Enable GoogleTests
 add_subdirectory(googletest)

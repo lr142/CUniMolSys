@@ -1,6 +1,7 @@
 #include "xyzfile.h"
 #include <fstream>
 #include <iostream>
+#include <string>
 using namespace std;
 
 bool XYZFile::Read(MolecularSystem &ms, std::string filename) {

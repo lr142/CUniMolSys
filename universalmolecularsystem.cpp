@@ -80,14 +80,14 @@ Molecule Molecule::DeepCopy(){
 }
 
 bool Molecule::ConsistencyCheck() {
-    // 1. Atom序列号必须唯一
+    //
     map<string,int> serialToIndexMap;
     for(int i=0;i<AtomsCount();i++){
         if(serialToIndexMap.find(atoms[i]->serial) != serialToIndexMap.end())
             return false;
         serialToIndexMap[atoms[i]->serial] = i;
     }
-    // 2. 没有悬空键
+    //
     for(int i=0;i<BondsCount();i++){
         string from = bonds[i]->atom1;
         string to = bonds[i]->atom2;

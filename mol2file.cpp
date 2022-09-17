@@ -1,6 +1,7 @@
 #include "mol2file.h"
 #include <iostream>
 #include <fstream>
+#include <string>
 using namespace std;
 Mol2File::Mol2File(bool writeElementInsteadOfType): MolecularFile(){
     writeElementInsteadOfType_ = writeElementInsteadOfType;

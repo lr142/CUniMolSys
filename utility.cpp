@@ -1,10 +1,11 @@
-#include "utility.h"
+﻿#include "utility.h"
 #include <ctype.h>
 #include <fstream>
 #include <memory>
 #include <algorithm>
 #include <cmath>
 #include <sstream>
+#include <string>
 using namespace std;
 
 vector<string> StringSplit(string str,char delimitator){
@@ -251,7 +252,7 @@ void XYZRotate(XYZ* coords,int numAtoms,double degree_clockwise,XYZ axis){
     double ry = axis[1];
     double rz = axis[2];
     // The rotational matrix was copied from a previous code. I forgot its reference...
-    double phi = degree_clockwise * M_PI / 180.0;
+    double phi = degree_clockwise * 3.14159265359 / 180.0;
     double c = cos(phi);
     double s = sin(phi);
     double RMatrix[3][3];

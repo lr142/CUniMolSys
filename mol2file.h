@@ -1,4 +1,4 @@
-#ifndef CUNIMOLSYS_MOL2FILE_H
+﻿#ifndef CUNIMOLSYS_MOL2FILE_H
 #define CUNIMOLSYS_MOL2FILE_H
 #include "universalmolecularsystem.h"
 class Mol2File:public MolecularFile{

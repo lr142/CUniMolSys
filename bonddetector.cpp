@@ -4,7 +4,7 @@
 #include "mol2file.h"
 #include <cmath>
 #include <fstream>
-
+#include <string>
 using namespace std;
 
 GridForNeighList::GridForNeighList(double SystemLx, double SystemLy, double SystemLz, double gridsize):gridsize_(gridsize) {
