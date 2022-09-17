@@ -42,18 +42,18 @@ TEST(StringFunctions,other){
     EXPECT_EQ(StringRemoveComment("ab ### da"),"ab");
 }
 TEST(ErrorHandler,tok){
-    error("Show some error message 1",false);
+    WARNING("Show some error message 1");
     error.TurnOff();
-    error("Show some error message 2",false);
+    WARNING("Show some error message 2");
     error.TurnOn();
-    error("Show some error message 3",false);
+    WARNING("Show some error message 3");
     error.TurnOff();
     ofstream ofs("dump.txt");
     error.SetOutput(ofs);
-    error("Show some error message 4",false);
+    WARNING("Show some error message 4");
     error.SetOutput(cout);
     error.TurnOn();
-    error("Show some error message 5",false);
+    WARNING("Show some error message 5");
 
     output("Show some output message 1");
     output.TurnOff();

@@ -56,10 +56,10 @@ public:
     void operator()(string msg,bool newline=true);
 };
 // The Singleton Objects
-static ErrorHandler errorr;
+static ErrorHandler error;
 // Two macros to quickly output error/warning messages
-#define ERROR(msg) errorr((msg),__FILE_NAME__,__LINE__,true)
-#define WARNING(msg) errorr((msg),__FILE_NAME__,__LINE__,false)
+#define ERROR(msg) error((msg),__FILE__,__LINE__,true)
+#define WARNING(msg) error((msg),__FILE__,__LINE__,false)
 
 static OutputHandler output;
 
