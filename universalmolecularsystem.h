@@ -53,8 +53,6 @@ public:
     inline int AtomsCount() {return atoms.size();}
     inline int BondsCount() {return bonds.size();}
 
-
-    //vector<vector<int>>& GetBondedMap(bool update);
     inline void AddAtom(const Atom &atom){atoms.push_back(std::make_shared<Atom>(atom));}
     string Summary();
 
@@ -64,12 +62,6 @@ public:
     //Molecule& operator = (const Molecule& other) = default;
     // Returns a "deep" copy of itself.
     Molecule DeepCopy();
-
-    /* ConsistencyCheck
-    # 1. Atom numbers unique
-    # 2. No dangling bonds
-     !! Considering removing this function */
-    bool ConsistencyCheck();
 public:
     // atoms and bonds, stored as vectors of shared pointers
     // They are implemented as public members for convenience
@@ -104,7 +96,6 @@ class Boundary{
 public:
     Boundary(bool orthogonal = true);
     inline bool Orthogonal(){return orthogonal_;}
-    void SetUVW(XYZ uvw[3]);
     void SetUVW(XYZ u,XYZ v,XYZ w);
     void SetUVW(double uvw[3][3]);
     void SetOrigin(XYZ origin);
@@ -138,8 +129,6 @@ public:
     int MoleculesCount();
     int BondsCount();
     Molecule& operator[](int index);
-    /* Get Atom by index in the whole molecular system. Supports negative Index.
-    * Returns nullptr if the index is out of range*/
 
     /* Renumber each atom and mol in MolecularSystem.
     * A very important function since continuous and unique numbering are prerequisites to MD and QM calculations.

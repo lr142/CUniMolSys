@@ -66,7 +66,7 @@ public:
     // distance^2 of two atoms, possibly in a PBC system.
     double DistanceSquared(XYZ pos1,XYZ pos2);
     void _debug_ShowNeighbors(XYZ coord, string filename);
-    void _debug_CompareCachedAndDirectNeighborList();
+    int _debug_CompareCachedAndDirectNeighborList();
 private:
     /* generate a list of equivalent positions for a coordinate xyzInCell.
      * xyzInCell must be in the cell. If xyzInCell is near the lower boundary of

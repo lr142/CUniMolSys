@@ -382,17 +382,19 @@ void NeighborList::_debug_ShowNeighbors(XYZ coord,string filename){
     XYZFile xyzfile;
     ms.Write(&xyzfile,filename);
 }
-void NeighborList::_debug_CompareCachedAndDirectNeighborList() {
+int NeighborList::_debug_CompareCachedAndDirectNeighborList() {
     int nAtoms = msa.AtomsCount();
-    for(int i=0;i<nAtoms;i++){
+    for(int i=0;i<nAtoms;i++) {
         Atom &atom = msa.AtomByGlobalIndex(i);
         vector<AtomInGrid> *fromCached = GetNeighborsFromCachedLists(atom.xyz);
         vector<AtomInGrid> fromDirect;
-        GetNeighborsFromCoordinates(atom.xyz,fromDirect);
-        if(fromDirect.size()!=fromCached->size()){
-            cout<<i<<"th atom: From Direct: "<<fromDirect.size()<<"From Cached: "<<fromCached->size()<<endl;
+        GetNeighborsFromCoordinates(atom.xyz, fromDirect);
+        if (fromDirect.size() != fromCached->size()) {
+            cout << i << "th atom: From Direct: " << fromDirect.size() << "From Cached: " << fromCached->size() << endl;
+            return i;
         }
     }
+    return -1;
 }
 
 BondDetectorByRules::BondDetectorByRules(double globalCutoff){
@@ -453,13 +455,17 @@ void BondDetectorByRules::Detect(MolecularSystem &ms, bool flushCurrentBonds) {
     // Debugging, check the consistency, time-consuming:
     /*
     {
-        pNlist_->_debug_CompareCachedAndDirectNeighborList();
-        // If not equal, check the details for a specific atom
-        auto pFromAtom = ms.GetAtom(210);
-        pNlist_->_debug_ShowNeighbors(pFromAtom->xyz, DATAFILESPATH + "/../"
-        + pFromAtom->globalSerial + ".xyz");
-    }
-     */
+        int first_wrong = pNlist_->_debug_CompareCachedAndDirectNeighborList();
+        if(first_wrong != -1) {
+            // If not equal, check the details for a specific atom
+            Atom &atom = msa.AtomByGlobalIndex(first_wrong);
+            pNlist_->_debug_ShowNeighbors(atom.xyz, DATAFILESPATH + "/../"
+                                                    + atom.globalSerial + ".xyz");
+            pNlist_->_debug_CompareCachedAndDirectNeighborList();
+            exit(0);
+        }
+    }*/
+
 
     for(int iFromAtom=0;iFromAtom<nAtoms;iFromAtom++){
         Atom &fromAtom = msa.AtomByGlobalIndex(iFromAtom);

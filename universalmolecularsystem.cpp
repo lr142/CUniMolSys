@@ -79,32 +79,8 @@ Molecule Molecule::DeepCopy(){
     return copy;
 }
 
-bool Molecule::ConsistencyCheck() {
-    //
-    map<string,int> serialToIndexMap;
-    for(int i=0;i<AtomsCount();i++){
-        if(serialToIndexMap.find(atoms[i]->serial) != serialToIndexMap.end())
-            return false;
-        serialToIndexMap[atoms[i]->serial] = i;
-    }
-    //
-    for(int i=0;i<BondsCount();i++){
-        string from = bonds[i]->atom1;
-        string to = bonds[i]->atom2;
-        if(serialToIndexMap.find(from) == serialToIndexMap.end())
-            return false;
-        if(serialToIndexMap.find(to) == serialToIndexMap.end())
-            return false;
-    }
-    return true;
-}
-
 Boundary::Boundary(bool ortho):orthogonal_(ortho){}
-void Boundary::SetUVW(XYZ uvw[3]){
-    this->uvw[0] = uvw[0];
-    this->uvw[1] = uvw[1];
-    this->uvw[2] = uvw[2];
-}
+
 void Boundary::SetUVW(XYZ u,XYZ v,XYZ w){
     uvw[0]=u; uvw[1]=v; uvw[2]=w;
 }
