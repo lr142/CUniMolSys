@@ -145,6 +145,7 @@ public:
     MolecularSystem DeepCopy();
     int AtomsCount();
     int MoleculesCount();
+    int BondsCount();
     Molecule& operator[](int index);
     /* Get Atom by index in the whole molecular system. Supports negative Index.
     * Returns nullptr if the index is out of range*/

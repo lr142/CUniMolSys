@@ -4,9 +4,9 @@
 
 struct AtomInGrid{
     int index; // original index in MolecularSystem
-    bool ghost; // whether a ghost atom
+    //bool ghost; // whether a ghost atom
     XYZ xyz;   // coordinates in the pGrid_, not in the original system
-    string element;
+    //string element;
 };
 
 class GridForNeighList{
@@ -25,15 +25,14 @@ public:
     // if in/out of the pGrid_, returns true/false.
     bool GridPosition(XYZ coord,int &ix,int &iy,int &iz);
     bool AddAtom(AtomInGrid &atom);
-    bool AddAtom(int index,XYZ xyz,bool ghost,string element);
+    bool AddAtom(int index,XYZ xyz,bool ghost);
     int AtomsCount();
     /* generate the list of atoms near the coord position. this function will return
-     * all atoms in the same pGrid_ as well as adjacent grids
-     * If half == true, only return grids with larger x,y,and z. */
-    bool NearbyAtoms(XYZ coord,vector<AtomInGrid>& output,bool half);
-    void _showContent_Debug(string dumpfilename);
-    Molecule _showGridContentAsMolecule_Debug(int ix,int iy,int iz);
-    Molecule _showGridContentAsMolecule_Debug(vector<AtomInGrid> &vec);
+     * all atoms in the same pGrid_ as well as adjacent grids */
+    bool NearbyAtoms(XYZ coord,vector<AtomInGrid>& output);
+    void _showContent_Debug(MolecularSystem &ms,string dumpfilename);
+    Molecule _debug_ShowGridContentAsMolecule(int ix, int iy, int iz, MolecularSystem &ms);
+    Molecule _debug_ShowGridContentAsMolecule(vector<AtomInGrid> &vec, MolecularSystem &ms);
 protected: //
     int Lx_;
     int Ly_;
@@ -45,18 +44,29 @@ protected: //
 class NeighborList{
 public:
     NeighborList(MolecularSystem &ms,double gridSize);
+    ~NeighborList();
+    NeighborList(const NeighborList& nlist) = delete;
+    NeighborList& operator=(const NeighborList& nlist) = delete;
     inline shared_ptr<GridForNeighList> GetGrid(){return pGrid_;}
     inline XYZ GridOrigin(){return gridOrigin_;}
     inline XYZ GridLengths(){return gridLengths_;}
     inline XYZ SystemLengths(){return systemLengths_;}
     /* Get neighbors. xyz are coordinates in the original system.
-     * if half==true, only gives neighbors in the +x, +y, +z direction, useful in neighborlist
-     * construction. On the other hand, half==false gives all neighbors, useful in case like
-     * clash detection */
-    void GetNeighbors(XYZ xyz,vector<AtomInGrid> &outputVec, bool half);
-    static XYZ WrapInCell(XYZ xyz,XYZ origin,XYZ LxLyLz);
+     * Note: this per-atom operation is time-consuming */
+    void GetNeighborsFromCoordinates(XYZ xyzInSystem, vector<AtomInGrid> &outputVec);
+
+    /* Assume all atoms in the same grid have the same neighbor list
+     * To speed-up the process of fetching neighbor list, the BuildCache function is called. */
+    void BuildCachedNeighborList();
+    void ClearCachedNeighborList();
+    vector<AtomInGrid>* GetNeighborsFromCachedLists(XYZ xyzInSystem);
+
+    XYZ SystemToGridXYZ(XYZ xyzInSys);
+    static XYZ WrapInCell(XYZ xyzInSystem,XYZ origin,XYZ LxLyLz);
     // distance^2 of two atoms, possibly in a PBC system.
     double DistanceSquared(XYZ pos1,XYZ pos2);
+    void _debug_ShowNeighbors(XYZ coord, string filename);
+    void _debug_CompareCachedAndDirectNeighborList();
 private:
     /* generate a list of equivalent positions for a coordinate xyzInCell.
      * xyzInCell must be in the cell. If xyzInCell is near the lower boundary of
@@ -72,6 +82,7 @@ private:
     XYZ gridOrigin_;
     XYZ gridLengths_;
     XYZ systemLengths_;
+    vector<AtomInGrid> *** cached_nlist_;
     // For floating point number comparisons
     static double LARGE;
     static double SMALL;
@@ -93,16 +104,16 @@ public:
     BondDetectorByRules(double globalCutoff);
     void ClearRules();
     void ParseFile(string filename);
-    // Currently flusthCurrentBonds = false not implemented!
     void Detect(MolecularSystem &ms,bool flushCurrentBonds=true) override;
     void Extend(string file_name_of_another_rules_set);
-    int SearchRules(MolecularSystem &ms,int iFromAtom, int iToAtom);
+    int SearchRules(MolecularSystem &ms, shared_ptr<Atom> pFromAtom, shared_ptr<Atom> pToAtom, vector<BondRule> &rule_vec);
     void FlushAllBonds(MolecularSystem &ms);
-    void AddBond(MolecularSystem &ms,int iFrom,int iTo, string bondType);
-    inline void SetGlobalCutoff(double cutoff) {globalCutoff_ = cutoff;}
+    void BuildFoundBondsMap(MolecularSystem &ms,set<pair<int,int>> &foundBonds);
+    void AddBond(MolecularSystem &ms,shared_ptr<Atom> pFromAtom, shared_ptr<Atom> pToAtom, string bondType);
+    void SetGlobalCutoff(double cutoff);
 private:
     double globalCutoff_;
-    vector<BondRule> rules_;
+    map<string,vector<BondRule>> rules_;
     shared_ptr<NeighborList> pNlist_;
 };
 

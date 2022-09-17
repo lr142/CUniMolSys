@@ -1,6 +1,7 @@
 #include "bonddetector.h"
 #include "utility.h"
 #include "xyzfile.h"
+#include "mol2file.h"
 #include <cmath>
 #include <fstream>
 
@@ -11,9 +12,9 @@ GridForNeighList::GridForNeighList(double SystemLx, double SystemLy, double Syst
     Ly_ = int(ceil(SystemLy/GridSize()));
     Lz_ = int(ceil(SystemLz/GridSize()));
     if(Lx_<=0 || Ly_<=0 || Lz_<=0 || gridsize<=0 ){
-        error("In GridForNeighList(), one of the dimension <=0");
+        ERROR("In GridForNeighList(), one of the dimension <=0");
     }else if(double(Lx_)*Ly_*Lz_ > 1000000000 ){ // > 1 billion, convert to double to prevent overflow
-        error("In GridForNeighList(), too many grids: "+to_string(double(Lx_)*Ly_*Lz_)+", check gridsize_");
+        ERROR("In GridForNeighList(), too many grids: "+to_string(double(Lx_)*Ly_*Lz_)+", check gridsize_");
     }
 
     grid = new vector<AtomInGrid>** [Lx()];
@@ -54,12 +55,12 @@ bool GridForNeighList::AddAtom(AtomInGrid &atom) {
         return true;
     }
 }
-bool GridForNeighList::AddAtom(int index, XYZ xyz, bool ghost,string element) {
+bool GridForNeighList::AddAtom(int index, XYZ xyz, bool ghost) {
     AtomInGrid atom;
     atom.index = index;
     atom.xyz = xyz;
-    atom.ghost = ghost;
-    atom.element = element;
+    //atom.ghost = ghost;
+    //atom.element = element;
     return AddAtom(atom);
 }
 int GridForNeighList::AtomsCount(){
@@ -73,7 +74,7 @@ int GridForNeighList::AtomsCount(){
     }
     return count;
 }
-bool GridForNeighList::NearbyAtoms(XYZ coord, vector<AtomInGrid> &outputVec, bool half) {
+bool GridForNeighList::NearbyAtoms(XYZ coord, vector<AtomInGrid> &outputVec) {
     int ix,iy,iz;
     bool result = GridPosition(coord,ix,iy,iz);
     if(!result)
@@ -92,14 +93,7 @@ bool GridForNeighList::NearbyAtoms(XYZ coord, vector<AtomInGrid> &outputVec, boo
             }
         }
     }
-    // But not all cells are relevant. Firstly, exclude cells on -x/-y/-z directions if half==true
-    if(half){
-        for(int counter=0;counter<27;counter++){
-            int *pCell = cells[counter];
-            if(pCell[0]<0 || pCell[1]<0 || pCell[2]<0)
-                active[counter] = false;
-        }
-    }
+    // But not all cells are relevant.
     // Exclude cells outside the pGrid_
     for(counter=0;counter<27;counter++){
         int *pc = cells[counter];
@@ -123,34 +117,34 @@ bool GridForNeighList::NearbyAtoms(XYZ coord, vector<AtomInGrid> &outputVec, boo
     return true;
 }
 
-void GridForNeighList::_showContent_Debug(string dumpfilename) {
-    MolecularSystem ms;
+void GridForNeighList::_showContent_Debug(MolecularSystem &ms,string dumpfilename) {
+    MolecularSystem ms_toWrite;
     for(int i=0;i<Lx();i++) {
         for (int j = 0; j < Ly(); j++) {
             for (int k = 0; k < Lz(); k++) {
                 if(grid[i][j][k].size()>0){
                     cout<<i<<" "<<j<<" "<<k<<":"<<grid[i][j][k].size()<<endl;
-                    auto mol = _showGridContentAsMolecule_Debug(i,j,k);
-                    ms.AddMolecule(mol);
+                    auto mol = _debug_ShowGridContentAsMolecule(i, j, k, ms);
+                    ms_toWrite.AddMolecule(mol);
                 }
             }
         }
     }
-    ms.RenumberAtomSerials();
+    ms_toWrite.RenumberAtomSerials();
     XYZFile xyzfile;
-    ms.Write(&xyzfile,dumpfilename);
+    ms_toWrite.Write(&xyzfile,dumpfilename);
 }
 
-Molecule GridForNeighList::_showGridContentAsMolecule_Debug(int ix, int iy, int iz) {
+Molecule GridForNeighList::_debug_ShowGridContentAsMolecule(int ix, int iy, int iz, MolecularSystem &ms) {
     vector<AtomInGrid> &vec = grid[ix][iy][iz];
-    return _showGridContentAsMolecule_Debug(vec);
+    return _debug_ShowGridContentAsMolecule(vec, ms);
 }
 
-Molecule GridForNeighList::_showGridContentAsMolecule_Debug(vector<AtomInGrid> &vec) {
+Molecule GridForNeighList::_debug_ShowGridContentAsMolecule(vector<AtomInGrid> &vec, MolecularSystem &ms) {
     Molecule mol;
     for(int i=0;i<vec.size();i++) {
         Atom a;
-        a.element = vec[i].element;
+        a.element = ms.GetAtom(vec[i].index)->element;
         a.xyz = vec[i].xyz;
         mol.AddAtom(a);
     }
@@ -161,13 +155,16 @@ Molecule GridForNeighList::_showGridContentAsMolecule_Debug(vector<AtomInGrid> &
 double NeighborList::LARGE = 1e9;
 double NeighborList::SMALL = 1e-5;
 
-NeighborList::NeighborList(MolecularSystem &ms, double gridSize): pMS_(&ms), gridsize_(gridSize){
+NeighborList::NeighborList(MolecularSystem &ms, double gridSize): pMS_(&ms), gridsize_(gridSize), cached_nlist_(nullptr){
     if(gridsize_<0.1)
-        error("In NeighborList(), gridsize too small. We suggest 3~5 Angstroms.");
+        ERROR("In NeighborList(), gridsize too small. We suggest 3~5 Angstroms.");
     if(pMS_->Periodic())
         createGridsForPeriodic();
     else
         createGridsForNonPeriodic();
+}
+NeighborList::~NeighborList(){
+    ClearCachedNeighborList();
 }
 void NeighborList::createGridsForNonPeriodic() {
     // Find the minx, miny, minz position of the system.
@@ -195,20 +192,20 @@ void NeighborList::createGridsForNonPeriodic() {
         AtomInGrid a;
         a.index = i;
         a.xyz = pAtom->xyz-minXYZ;
-        a.element = pAtom->element;
-        a.ghost = false; // no ghost atoms for non-periodic systems
+        //a.element = pAtom->element;
+        //a.ghost = false; // no ghost atoms for non-periodic systems
         pGrid_->AddAtom(a);
     }
 }
 void NeighborList::createGridsForPeriodic() {
     if( ! pMS_->boundary.Orthogonal())
-        error("NeighborList::createGridsForPeriodic() only supported for orthogonal system.");
+        ERROR("Only supported for orthogonal system.");
     gridOrigin_ = pMS_->boundary.GetOrigin();
     systemLengths_ = XYZ(pMS_->boundary.GetU()[0],
                              pMS_->boundary.GetV()[1],
                              pMS_->boundary.GetW()[2]);
     if(systemLengths_[0] < SMALL || systemLengths_[1] < SMALL || systemLengths_[2] < SMALL)
-        error("In NeighborList::createGridsForPeriodic(), system dimension negative or close to 0.");
+        ERROR("System dimension negative or close to 0.");
     // The size of the grids are wider with skin size = gridsize;
     gridLengths_ = systemLengths_ + XYZ(gridsize_, gridsize_, gridsize_);
     pGrid_ = make_shared<GridForNeighList>(gridLengths_[0], gridLengths_[1], gridLengths_[2], gridsize_);
@@ -220,13 +217,13 @@ void NeighborList::createGridsForPeriodic() {
         // atoms must be wrapped in the cell
         a.index = i;
         a.xyz = WrapInCell(pAtom->xyz, GridOrigin(), systemLengths_);
-        a.element = pAtom->element;
-        a.ghost = false; // first, add the real atom
+        //a.element = pAtom->element;
+        //a.ghost = false; // first, add the real atom
         pGrid_->AddAtom(a);
         vector<XYZ> equilPos;
         generateEquivalentPositionsForPBC(a.xyz,equilPos);
         for(auto &pos:equilPos){
-            pGrid_->AddAtom(i,pos,true,a.element);
+            pGrid_->AddAtom(i,pos,true);
         }
     }
 }
@@ -241,15 +238,11 @@ XYZ NeighborList::WrapInCell(XYZ xyz, XYZ origin, XYZ LxLyLz) {
     return xyz;
 }
 
-void NeighborList::GetNeighbors(XYZ xyz, vector<AtomInGrid> &outputVec, bool half) {
-    // Convert original xyz to xyz in the grids. NonPBC and PBC are handled differently.
-    if(pMS_->Periodic())
-        xyz = WrapInCell(xyz,GridOrigin(),SystemLengths());
-    else
-        xyz = xyz-GridOrigin();
-    pGrid_->NearbyAtoms(xyz,outputVec,half);
-    // if the system is NonPBC, or the user needs only a half-neighbor list, that's enough
-    if(half || !pMS_->Periodic()) {
+void NeighborList::GetNeighborsFromCoordinates(XYZ xyzInSystem, vector<AtomInGrid> &outputVec) {
+    XYZ xyz = SystemToGridXYZ(xyzInSystem);
+    pGrid_->NearbyAtoms(xyz,outputVec);
+    // if the system is NonPBC, that's enough
+    if(!pMS_->Periodic()) {
         removeAtomListDuplication(outputVec);
         return;
     }
@@ -260,11 +253,61 @@ void NeighborList::GetNeighbors(XYZ xyz, vector<AtomInGrid> &outputVec, bool hal
     generateEquivalentPositionsForPBC(xyz,equilPos);
     for(XYZ &pos:equilPos){
         vector<AtomInGrid> neighbors;
-        pGrid_->NearbyAtoms(pos,neighbors,false);
+        pGrid_->NearbyAtoms(pos,neighbors);
         outputVec.insert(outputVec.end(),neighbors.begin(),neighbors.end());
     }
     // Note the outputVec may contain duplications, now we remove them;
     removeAtomListDuplication(outputVec);
+}
+
+void NeighborList::BuildCachedNeighborList(){
+    cached_nlist_ = new vector<AtomInGrid>** [pGrid_->Lx()];
+    for(int i=0;i<pGrid_->Lx();i++){
+        cached_nlist_[i] = new vector<AtomInGrid>* [pGrid_->Ly()];
+        for(int j=0;j<pGrid_->Ly();j++){
+            cached_nlist_[i][j] = new vector<AtomInGrid> [pGrid_->Lz()];
+        }
+    }
+    for(int i=0;i<pGrid_->Lx();i++){
+        for(int j=0;j<pGrid_->Ly();j++){
+            for(int k=0;k<pGrid_->Lz();k++){
+                XYZ gridPos(i*gridsize_,j*gridsize_,k*gridsize_);
+                gridPos += GridOrigin();
+                GetNeighborsFromCoordinates(gridPos,cached_nlist_[i][j][k]);
+            }
+        }
+    }
+}
+void NeighborList::ClearCachedNeighborList() {
+    if(cached_nlist_== nullptr)
+        return;
+    for(int i=0;i<pGrid_->Lx();i++){
+        for(int j=0;j<pGrid_->Ly();j++){
+            delete [] cached_nlist_[i][j];
+        }
+        delete [] cached_nlist_[i];
+    }
+    delete [] cached_nlist_;
+    cached_nlist_ = nullptr;
+}
+
+vector<AtomInGrid>* NeighborList::GetNeighborsFromCachedLists(XYZ xyzInSystem){
+    XYZ xyz = SystemToGridXYZ(xyzInSystem);
+    int ix,iy,iz;
+    bool result = pGrid_->GridPosition(xyz,ix,iy,iz);
+    if(!result || cached_nlist_== nullptr)
+        return nullptr;
+    else
+        return &cached_nlist_[ix][iy][iz];
+}
+
+XYZ NeighborList::SystemToGridXYZ(XYZ xyz){
+    // Convert original xyz to xyz in the grids. NonPBC and PBC are handled differently.
+    if(pMS_->Periodic())
+        xyz = WrapInCell(xyz,GridOrigin(),SystemLengths());
+    else
+        xyz = xyz-GridOrigin();
+    return xyz;
 }
 
 double NeighborList::DistanceSquared(XYZ pos1, XYZ pos2) {
@@ -318,14 +361,57 @@ void NeighborList::removeAtomListDuplication(vector<AtomInGrid> &vec) {
     vec.insert(vec.end(),copy.begin(),copy.end());
 }
 
+void NeighborList::_debug_ShowNeighbors(XYZ coord,string filename){
+    MolecularSystem ms;
+    Atom theCoordItself;
+    theCoordItself.element = "Pt";
+    theCoordItself.xyz = SystemToGridXYZ(coord);
+    // Show the neighbors in two ways: directly and from the cached lists:
+    // 1. Directly;
+    vector<AtomInGrid> vec;
+    GetNeighborsFromCoordinates(coord,vec);
+    auto mol = pGrid_->_debug_ShowGridContentAsMolecule(vec, *pMS_);
+    mol.AddAtom(theCoordItself);
+    ms.AddMolecule(mol);
+
+    // 2. From Cached lists:
+    auto pVec = GetNeighborsFromCachedLists(coord);
+    mol = pGrid_->_debug_ShowGridContentAsMolecule(*pVec, *pMS_);
+    mol.AddAtom(theCoordItself);
+    ms.AddMolecule(mol);
+
+    XYZFile xyzfile;
+    ms.Write(&xyzfile,filename);
+}
+void NeighborList::_debug_CompareCachedAndDirectNeighborList() {
+    int nAtoms = pMS_->AtomsCount();
+    for(int i=0;i<nAtoms;i++){
+        auto pAtom = pMS_->GetAtom(i);
+        vector<AtomInGrid> *fromCached = GetNeighborsFromCachedLists(pAtom->xyz);
+        vector<AtomInGrid> fromDirect;
+        GetNeighborsFromCoordinates(pAtom->xyz,fromDirect);
+        if(fromDirect.size()!=fromCached->size()){
+            cout<<i<<"th atom: From Direct: "<<fromDirect.size()<<"From Cached: "<<fromCached->size()<<endl;
+        }
+    }
+}
+
 BondDetectorByRules::BondDetectorByRules(double globalCutoff){
-    globalCutoff_ = globalCutoff;
+    SetGlobalCutoff(globalCutoff);
     pNlist_ = nullptr;
 }
+void BondDetectorByRules::SetGlobalCutoff(double cutoff) {
+    globalCutoff_ = cutoff;
+    if(cutoff<2.0)
+        WARNING("cutoff= "+to_string(cutoff)+" too small, may miss bonds");
+    if(cutoff>8.0)
+        WARNING("cutoff= " +to_string(cutoff)+" too large, may affect performance.");
+}
+
 void BondDetectorByRules::ParseFile(string filename){
     ifstream ifs(filename);
     if(!ifs)
-        error("Can't open ["+filename+"] to read!");
+        ERROR("Can't open ["+filename+"] to read!, Please check the DATAFILSPATH in CMakeLists.txt");
     string line;
     while(getline(ifs,line)){
         line = StringRemoveComment(line);
@@ -341,9 +427,13 @@ void BondDetectorByRules::ParseFile(string filename){
             rule.type = parts[4];
             rule.low_sqr = pow(rule.low,2);
             rule.high_sqr = pow(rule.high,2);
-            rules_.push_back(rule);
+            string name1 = rule.ele1+"_"+rule.ele2;
+            string name2 = rule.ele2+"_"+rule.ele1;
+            rules_[name1].push_back(rule);
+            if(name1!=name2)
+                rules_[name2].push_back(rule);
         }catch(exception e){
-            error("While reading ["+filename+"] at this line:\n"+line);
+            ERROR("While reading ["+filename+"] at this line:\n"+line);
         }
     }
 }
@@ -351,50 +441,65 @@ void BondDetectorByRules::ClearRules(){
     rules_.clear();
 }
 void BondDetectorByRules::Detect(MolecularSystem &ms, bool flushCurrentBonds) {
-    // Call this function once to update the date structure
-    ms.SearchAtomByGlobalSerial("",true);
+
+    set<pair<int,int>> foundBonds;
     if(flushCurrentBonds)
         FlushAllBonds(ms);
+    else
+        BuildFoundBondsMap(ms,foundBonds);
 
     int nAtoms = ms.AtomsCount();
     pNlist_ = make_shared<NeighborList>(ms,globalCutoff_);
+    // Building Cache
+    pNlist_->BuildCachedNeighborList();
 
-    set<pair<int,int>> foundBonds;
+    // Debugging, check the consistency, time-consuming:
+    /*
+    {
+        pNlist_->_debug_CompareCachedAndDirectNeighborList();
+        // If not equal, check the details for a specific atom
+        auto pFromAtom = ms.GetAtom(210);
+        pNlist_->_debug_ShowNeighbors(pFromAtom->xyz, DATAFILESPATH + "/../"
+        + pFromAtom->globalSerial + ".xyz");
+    }
+     */
+
     for(int iFromAtom=0;iFromAtom<nAtoms;iFromAtom++){
         auto pFromAtom = ms.GetAtom(iFromAtom);
-        vector<AtomInGrid> candidateAtoms;
-        pNlist_->GetNeighbors(pFromAtom->xyz,candidateAtoms,true);
-//        if(iFromAtom%100 == 0)
-//            cout<<iFromAtom<<endl;
-        for(auto &item:candidateAtoms){
+        auto candidateAtoms = pNlist_->GetNeighborsFromCachedLists(pFromAtom->xyz);
+
+        for(auto &item:*candidateAtoms){
             int iToAtom = item.index;
+            auto pToAtom = ms.GetAtom(iToAtom);
+            string element_name = pFromAtom->element+"_"+pToAtom->element;
+            auto pIter = rules_.find(element_name);
+
+            if(pIter == rules_.end())
+                continue;
             auto pair1 = make_pair(iFromAtom,iToAtom);
             auto pair2 = make_pair(iToAtom,iFromAtom);
             if(iToAtom == iFromAtom ||
             foundBonds.find(pair1) != foundBonds.end() ||
             foundBonds.find(pair2) != foundBonds.end())
                 continue;
-            int iBondType = SearchRules(ms,iFromAtom,iToAtom);
+            int iBondType = SearchRules(ms,pFromAtom,pToAtom,pIter->second);
             if(iBondType!=-1) {
-                AddBond(ms, iFromAtom, iToAtom, this->rules_[iBondType].type);
+                AddBond(ms, pFromAtom, pToAtom, pIter->second[iBondType].type);
                 foundBonds.insert(pair1);
                 foundBonds.insert(pair2);
             }
         }
     }
 }
-int BondDetectorByRules::SearchRules(MolecularSystem &ms, int iFromAtom, int iToAtom) {
-    auto pAtom1 = ms.GetAtom(iFromAtom);
-    auto pAtom2 = ms.GetAtom(iToAtom);
-    double dist_sqr = pNlist_->DistanceSquared(pAtom1->xyz,pAtom2->xyz);
+int BondDetectorByRules::SearchRules(MolecularSystem &ms, shared_ptr<Atom>  pFromAtom, shared_ptr<Atom>  pToAtom, vector<BondRule> &rule_vec){
+    double dist_sqr = pNlist_->DistanceSquared(pFromAtom->xyz,pToAtom->xyz);
     int matched_iBond = -1;
-    for(int iBond=0;iBond<rules_.size();iBond++){
-        BondRule &rule = rules_[iBond];
+    for(int iBond=0;iBond<rule_vec.size();iBond++){
+        BondRule &rule = rule_vec[iBond];
         if(dist_sqr<rule.low_sqr || dist_sqr>rule.high_sqr)
             continue;
-        if( (rule.ele1==pAtom1->element && rule.ele2==pAtom2->element) ||
-            (rule.ele1==pAtom2->element && rule.ele2==pAtom1->element) )
-            matched_iBond = iBond;
+        // Only need to check the distance now
+        matched_iBond = iBond;
     }
     return matched_iBond;
 }
@@ -404,21 +509,61 @@ void BondDetectorByRules::FlushAllBonds(MolecularSystem &ms){
     }
     ms.interMolecularBonds.clear();
 }
-void BondDetectorByRules::AddBond(MolecularSystem &ms,int iFrom, int iTo, std::string bondType) {
-    auto pFromAtom = ms.GetAtom(iFrom);
-    auto pToAtom = ms.GetAtom(iTo);
+void BondDetectorByRules::BuildFoundBondsMap(MolecularSystem &ms,set<pair<int, int>> &foundBonds) {
+    // Generate a map from <molIndex,atomIndex> to GlobalIndex
+    map<pair<int,int>,int> inMolIndexToGlobalIndex;
+    int runningCount = 0;
+    for(int iMol=0;iMol<ms.MoleculesCount();iMol++){
+        for(int iAtom=0;iAtom<ms[iMol].AtomsCount();iAtom++){
+            inMolIndexToGlobalIndex[make_pair(iMol,iAtom)] = runningCount+iAtom;
+        }
+        runningCount += ms[iMol].AtomsCount();
+    }
 
+    // Now count all in-mol bonds
+    for(int iMol=0;iMol<ms.MoleculesCount();iMol++){
+        vector<vector<int>> &bonded = ms[iMol].GetBondedMap(true);
+        for(int iFromAtom=0; iFromAtom<bonded.size();iFromAtom++){
+            for(int i=0;i<bonded[iFromAtom].size();i++){
+                int iToAtom = bonded[iFromAtom][i];
+                int iFromGlobalIndex = inMolIndexToGlobalIndex[make_pair(iMol,iFromAtom)];
+                int iToGlobalIndex = inMolIndexToGlobalIndex[make_pair(iMol,iToAtom)];
+                foundBonds.insert(make_pair(iFromGlobalIndex,iToGlobalIndex));
+                // Don't need to consider the other bonding direction since the other bond is
+                // also included in the bondedMap.
+            }
+        }
+    }
+    // Count inter-molecular bonds:
+    // First, run this
+    ms.SearchAtomByGlobalSerial("",true);
+    for(int iBond=0;iBond<ms.interMolecularBonds.size();iBond++){
+        string iFromSerial = ms.interMolecularBonds[iBond]->atom1;
+        string iToSerial = ms.interMolecularBonds[iBond]->atom2;
+        int iFromIndex= inMolIndexToGlobalIndex[ms.SearchAtomByGlobalSerial(iFromSerial,false)];
+        int iToIndex = inMolIndexToGlobalIndex[ms.SearchAtomByGlobalSerial(iToSerial,false)];
+        // In this case both directions must be recorded.
+        foundBonds.insert(make_pair(iFromIndex,iToIndex));
+        foundBonds.insert(make_pair(iToIndex,iFromIndex));
+    }
+}
+void BondDetectorByRules::AddBond(MolecularSystem &ms,shared_ptr<Atom> pFromAtom, shared_ptr<Atom> pToAtom, std::string bondType) {
     Bond b;
+    int i;
     b.length = sqrt(pNlist_->DistanceSquared(pFromAtom->xyz,pToAtom->xyz));
     b.type = bondType;
-
-    auto iFromMolAtom = ms.SearchAtomByGlobalSerial(pFromAtom->globalSerial);
-    auto iToMolAtom = ms.SearchAtomByGlobalSerial(pToAtom->globalSerial);
+    static bool first_call = true;
+    if(first_call){
+        first_call = false;
+        ms.SearchAtomByGlobalSerial("",true);
+        // SearchAtomByGlobalSerial(true) are very slow. Build cache on first call!
+    }
+    auto iFromMolAtom = ms.SearchAtomByGlobalSerial(pFromAtom->globalSerial,false);
+    auto iToMolAtom = ms.SearchAtomByGlobalSerial(pToAtom->globalSerial,false);
     if(iFromMolAtom.first == iToMolAtom.first){
-        auto mol = ms[iFromMolAtom.first];
         b.atom1 = pFromAtom->serial;
         b.atom2 = pToAtom->serial;
-        mol.bonds.push_back(make_shared<Bond>(b));
+        ms[0].bonds.push_back(make_shared<Bond>(b));
     }else{
         Bond b;
         b.atom1 = pFromAtom->globalSerial;

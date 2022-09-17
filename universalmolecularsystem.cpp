@@ -42,7 +42,7 @@ vector<vector<int>>& Molecule::GetBondedMap(bool update){
         string to = bonds[i]->atom2;
         auto not_found_pos = serialToIndexMap.end();
         if(serialToIndexMap.find(from)==not_found_pos || serialToIndexMap.find(to)==not_found_pos){
-            error("Dangling bond detected: ["+from+"-"+to+"] in molecule serial ="+ serial,false);
+            WARNING("Dangling bond detected: ["+from+"-"+to+"] in molecule serial ="+ serial);
         }
         int fromIndex = serialToIndexMap[from];
         int toIndex   = serialToIndexMap[to];
@@ -197,6 +197,13 @@ int MolecularSystem::AtomsCount(){
 int MolecularSystem::MoleculesCount() {
     return molecules.size();
 }
+int MolecularSystem::BondsCount() {
+    int count = 0;
+    for(int i=0;i<MoleculesCount();i++)
+        count+=(*this)[i].BondsCount();
+    count+= interMolecularBonds.size();
+    return count;
+}
 Molecule& MolecularSystem::operator[](int index){
     int molCount = MoleculesCount();
     if(index < -molCount || index >= molCount)
@@ -332,7 +339,7 @@ void MolecularSystem::Rotate(double clockwise_degree, XYZ axis){
 }
 void MolecularSystem::FractionalToCartesian(){
     if(!boundary.Orthogonal())
-        error("MolecularSystem::FractionalToCartesian() not supported for non-orthogonal systems!",true);
+        ERROR("Not supported for non-orthogonal systems!");
     double uvw[3][3];
     boundary.GetUVW(uvw);
     double X,Y,Z;

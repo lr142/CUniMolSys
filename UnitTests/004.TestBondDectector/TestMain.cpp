@@ -12,12 +12,20 @@ using namespace std;
 class TestBD:public ::testing::Test{
 protected:
     void SetUp() override{
-        ms[0].Read(&mol2file,DATAFILESPATH+"/Structures/FuchsSandoff.mol2");
-        cout<<ms[0].Summary()<<endl;
-        ms[1].Read(&mol2file,DATAFILESPATH+"/Structures/tip4p_water_5nm_chunk.mol2");
-        cout<<ms[1].Summary()<<endl;
+        string paths[] = {
+                DATAFILESPATH+"/Structures/Given1.mol2",
+                DATAFILESPATH+"/Structures/Given2.mol2",
+                DATAFILESPATH+"/Structures/FuchsSandoff.mol2",
+                DATAFILESPATH+"/Structures/PolyPS.mol2",
+                DATAFILESPATH+"/Structures/tip4p_water_5nm_chunk.mol2",
+                DATAFILESPATH+"/Structures/spc_water_5nm_chunk.mol2",
+        };
+        for(auto path:paths) {
+            ms.push_back(MolecularSystem());
+            ms[ms.size() - 1].Read(&mol2file, path);
+        }
     }
-    MolecularSystem ms[2];
+    vector<MolecularSystem> ms;
     Mol2File mol2file;
     XYZFile xyzfile;
 
@@ -84,7 +92,7 @@ protected:
 //            for(double z=0; z < 50; z+=meshgrid[2]){
 //                vector<AtomInGrid> vec;
 //                pGrid_.NearbyAtoms(XYZ(x, y, z), vec, false);
-//                Molecule mol = pGrid_._showGridContentAsMolecule_Debug(vec);
+//                Molecule mol = pGrid_._debug_ShowGridContentAsMolecule(vec);
 //                newMS.AddMolecule(mol);
 //            }
 //        }
@@ -108,8 +116,8 @@ protected:
 //        for(double y=0;y<50;y+=6){
 //            for(double z=0;z<50;z+=6){
 //                vector<AtomInGrid> outlist;
-//                nlist.GetNeighbors(XYZ(x,y,z),outlist,true);
-//                auto mol = nlist.GetGrid()->_showGridContentAsMolecule_Debug(outlist);
+//                nlist.GetNeighborsFromCoordinates(XYZ(x,y,z),outlist,true);
+//                auto mol = nlist.GetGrid()->_debug_ShowGridContentAsMolecule(outlist);
 //                toWrite.AddMolecule(mol);
 //            }
 //        }
@@ -120,11 +128,27 @@ protected:
 
 // Test Bond Detection
 TEST_F(TestBD,findbonds){
-    MolecularSystem thems =
-            SelectRegionFromMolecularSystem(ms[1],
-            XYZ(0,0,0),XYZ(50,50,50));
-    thems.RenumberAtomSerials();
-    thems.Summary();
-    thems.DetectBonds(GetDefaultBondDetector(5.0));
-    thems.Summary();
+    for(int iNo=0;iNo<ms.size();iNo++) {
+        MolecularSystem &thems = ms[iNo];
+        thems.RenumberAtomSerials();
+        cout<<thems.Summary()<<endl;
+        int expected_bond_count = thems.BondsCount();
+        for (double cutoff = 2; cutoff < 8; cutoff += 0.5) {
+            auto start = chrono::system_clock::now();
+            thems.DetectBonds(GetDefaultBondDetector(cutoff), true);
+            EXPECT_EQ(thems.BondsCount(), expected_bond_count);
+            auto end = chrono::system_clock::now();
+            auto duration = chrono::duration_cast<chrono::milliseconds>(end - start);
+            cout << "Cutoff = " << cutoff << " consumes " << duration.count() << "ms" << endl;
+        }
+
+        int bondsCountToDelete = thems.BondsCount()/2;
+        thems.molecules[0]->bonds.erase(thems.molecules[0]->bonds.begin() ,
+                                        thems.molecules[0]->bonds.begin() + bondsCountToDelete);
+        EXPECT_EQ(thems.BondsCount(), expected_bond_count - bondsCountToDelete);
+        thems.DetectBonds(GetDefaultBondDetector(4.), false);
+        EXPECT_EQ(thems.BondsCount(), expected_bond_count);
+
+        thems.Write(&mol2file, DATAFILESPATH + "/../dump" + to_string(iNo)+".mol2");
+    }
 }

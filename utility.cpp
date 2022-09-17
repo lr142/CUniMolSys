@@ -4,7 +4,7 @@
 #include <memory>
 #include <algorithm>
 #include <cmath>
-#include <stdexcept>
+#include <sstream>
 using namespace std;
 
 vector<string> StringSplit(string str,char delimitator){
@@ -83,13 +83,15 @@ void ErrorAndOutputHandler::SetOutput(std::ostream &ostream) {pOutput_ = &ostrea
 void ErrorAndOutputHandler::TurnOff() {onOffState_ = false;}
 void ErrorAndOutputHandler::TurnOn() {onOffState_ = true;}
 
-void ErrorHandler::operator()(std::string msg, bool fatal) {
+void ErrorHandler::operator()(std::string msg,const char* file,int line, bool fatal) {
     // Non-fatal messages will be turned off if the handler is in OFF state
     // But Fatal messages will be shown regardless of the on/off state
     if(!fatal and !onOffState_)
         return;
-    string header = fatal? "Fatal Error: ":"Warning: ";
-    *pOutput_<<header<<msg<<endl;
+    ostringstream oss;
+    oss<< (fatal? "Fatal Error [":"Warning [");
+    oss<<file<<":"<<line<<"] ";
+    *pOutput_<<oss.str()<<": "<<msg<<endl;
     if(fatal)
         exit(0);
 }
@@ -114,7 +116,7 @@ PeriodicTable::PeriodicTable() {
     string filename = DATAFILESPATH+"/atomicweights.csv";
     ifstream ifs(filename);
     if(!ifs)
-        error("Can't open ["+filename+"], please check the _DATAFILESPATH_ variable in the CMakeLists.txt.");
+        ERROR("Can't open ["+filename+"], please check the _DATAFILESPATH_ variable in the CMakeLists.txt.");
     string line;
     while(getline(ifs,line)){
         auto words = StringSplit(line,',');

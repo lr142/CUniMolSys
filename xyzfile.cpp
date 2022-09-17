@@ -11,7 +11,7 @@ bool XYZFile::Read(MolecularSystem &ms, std::string filename) {
     # in the comment line ( the 2nd line, or the line below each atom count if multiple molecules are present) */
     ifstream ifs(filename);
     if(!ifs)
-        error("Can't open xyz file["+filename+"] to read!");
+        ERROR("Can't open xyz file["+filename+"] to read!");
     string line;
 
     ms.Clear();
@@ -32,7 +32,7 @@ bool XYZFile::Read(MolecularSystem &ms, std::string filename) {
             getline(ifs, line);
             auto parts = StringSplit(line);
             if (parts.size() < 4)
-                error("Format error in xyz file[" + filename + "]:\n" + line);
+                ERROR("Format error in xyz file[" + filename + "]:\n" + line);
             Atom a;
             a.element = parts[0];
             a.xyz = {stof(parts[1]), stof(parts[2]), stof(parts[3])};
@@ -49,7 +49,7 @@ bool XYZFile::Read(MolecularSystem &ms, std::string filename) {
 bool XYZFile::Write(MolecularSystem &ms, std::string filename) {
     ofstream ofs(filename);
     if(!ofs)
-        error("Can't open xyz file["+filename+"] to write!");
+        ERROR("Can't open xyz file["+filename+"] to write!");
     for(int i=0;i<ms.MoleculesCount();i++){
         ofs<<ms[i].AtomsCount()<<endl;
         ofs<<(ms[i].name==""?ms.name:ms[i].name)<<endl;

@@ -9,7 +9,7 @@ Mol2File::Mol2File(bool writeElementInsteadOfType): MolecularFile(){
 bool Mol2File::Read(MolecularSystem &ms, string filename) {
     ifstream ifs(filename);
     if(!ifs)
-        error("Can't open ["+filename+"] to read.");
+        ERROR("Can't open ["+filename+"] to read.");
     enum STATE{ATOM,BOND,OTHER,CRYSIN,MOLECULE};
     STATE state = OTHER;
 
@@ -31,6 +31,7 @@ bool Mol2File::Read(MolecularSystem &ms, string filename) {
                 //This is the default way Materials Studio writes PBC boundaries.
                 state = CRYSIN;
             }else{
+                state = OTHER;
                 //more keywords and more features can be read from the MOL2 file. If necessary, extend the program
                 //from the above enumeration statements and add respective actions below.
             }
@@ -128,13 +129,16 @@ void Mol2File::showError(int lineno,string line,string filename,string comment,b
         output(line);
     if(comment!="")
         output(comment);
-    error("Mol2File::Read() failed.",fatal);
+    if(fatal)
+        ERROR("Mol2File::Read() failed.");
+    else
+        WARNING("Mol2File::Read() failed.");
 }
 
 bool Mol2File::Write(MolecularSystem &ms, std::string filename) {
     ofstream ofs(filename);
     if(!ofs)
-        error("Can't open ["+filename+"] to write.");
+        ERROR("Can't open ["+filename+"] to write.");
     for(int i=0;i<ms.MoleculesCount();i++)
         writeAMolecule(ms[i],ofs);
     if(ms.Periodic()){

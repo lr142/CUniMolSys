@@ -47,7 +47,7 @@ protected:
 class ErrorHandler:public ErrorAndOutputHandler{
 public:
     ErrorHandler():ErrorAndOutputHandler(){}
-    void operator()(string msg,bool fatal=true);
+    void operator()(string msg,const char* file,int line,bool fatal=true);
 };
 // OutputHandler,
 class OutputHandler:public ErrorAndOutputHandler{
@@ -56,7 +56,11 @@ public:
     void operator()(string msg,bool newline=true);
 };
 // The Singleton Objects
-static ErrorHandler error;
+static ErrorHandler errorr;
+// Two macros to quickly output error/warning messages
+#define ERROR(msg) errorr((msg),__FILE_NAME__,__LINE__,true)
+#define WARNING(msg) errorr((msg),__FILE_NAME__,__LINE__,false)
+
 static OutputHandler output;
 
 // Singleton Object, Initialized only once. User can only access through static members
