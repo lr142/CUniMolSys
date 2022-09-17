@@ -52,12 +52,9 @@ public:
     Bond& GetBond(int index);
     inline int AtomsCount() {return atoms.size();}
     inline int BondsCount() {return bonds.size();}
-    // 一个辅助函数，返回一个连结列表(a list of lists)，例如
-    // GetBondedMap[0] 记录与index（非serial）=0 的原子连接的原子的indexes
-    // 如果有悬空键（即有的键只有一端，没有另一端）,则出错。
-    // 此数据结构较为耗费资源，故只有传递 update = true时，才生成，
-    // 若update = false,仅返回上次计算的结果（以static形式存储）
-    vector<vector<int>>& GetBondedMap(bool update);
+
+
+    //vector<vector<int>>& GetBondedMap(bool update);
     inline void AddAtom(const Atom &atom){atoms.push_back(std::make_shared<Atom>(atom));}
     string Summary();
 
@@ -68,10 +65,10 @@ public:
     // Returns a "deep" copy of itself.
     Molecule DeepCopy();
 
-    /* 分子内部结构合理性（一致性）检测。如果所有检查都通过，则返回 True，否则返回 False
-    # 检查的内容包含以下几项：
-    # 1. Atom序列号必须唯一
-    # 2. 没有悬空键。通过使用辅助函数BondedMap来实现*/
+    /* ConsistencyCheck
+    # 1. Atom numbers unique
+    # 2. No dangling bonds
+     !! Considering removing this function */
     bool ConsistencyCheck();
 public:
     // atoms and bonds, stored as vectors of shared pointers
@@ -104,12 +101,6 @@ public:
 };
 
 class Boundary{
-/* # 边界条件。非周期性体系可设为None。对周期性系，可以使用以下两种惯例之一：
-# 1. 设为3x3的矩阵，代表u,v,w三个lattice向量。此惯例可以处理非Orthogonal的晶胞, 记录于boundaryInUVW
-# 2. 对orthogonal体系，特别是用于LAMMPS时，使用3x2矩阵，代表[[xlo,xhigh],[ylo,yhigh],[zlo,zhigh]]. 这种方式也是LAMMPSDATAFile
-# 读取文件时采用的表示方式。记录于 boundaryInLoHi。原点记录于 origin_
-# 具体使用哪种惯例依调用者的需要而定。
-# 对orthogonal 体系， origin_ + boundaryInUVW <--> boundaryInLoHi可以互转 */
 public:
     Boundary(bool orthogonal = true);
     inline bool Orthogonal(){return orthogonal_;}
@@ -149,34 +140,17 @@ public:
     Molecule& operator[](int index);
     /* Get Atom by index in the whole molecular system. Supports negative Index.
     * Returns nullptr if the index is out of range*/
-    shared_ptr<Atom> GetAtom(int index);
-    /* According to molecule's serial, return molecule's index.
-     * to speedup, the function builds cached data structures upon first call
-     * the cached data structure will be invalid if the MolSys has been modified
-     * The user should set update=true in those situations to update the cached
-     * data. Returns <-1,-1> if no such serial exists
-     * # Warning: Call with update=false only when you're absolutely sure!  */
-    int SearchMoleculeBySerial(string molSerial,bool update=true);
-    /* According to an atom's globalSerial, return the index of its molecule.
-     * and the index of the atom within this molecule.
-     * to speedup, the function builds cached data structures upon first call
-     * the cached data structure will be invalid if the MolSys has been modified
-     * The user should set update=true in those situations to update the cached
-     * data. Returns <-1,-1> if no such serial exists
-     * # Warning: Call with update=false only when you're absolutely sure!
-     * */
-    std::pair<int,int> SearchAtomByGlobalSerial(string atomGlobalSerial,bool update=true);
-    /*  # 重新编号 MolecularSystem中每个原子的serials 和 globalSerial。
-    # 这是一个非常重要的函数，因为很多情况下，原子编号的唯一性与连续性是开展MD和QM计算的必要条件。
-    # 原则上，几乎所有的MolecularFile(文件读写器)在读取一个MolecularSystem结束时，都会自发调用此函数来对原子统一编号，只有少数例外，
-    # 例如LAMMPSDATAFile，因为此时文件中已经有原子统一编号,可能需要保留，不再重新编号。
-    # 在对MolecularSystem作其它操作，例如分解、合并、添加成份等后，一般也需要调用此函数。
-    # Warning: Call with update=false only when you're absolutely sure!
+
+    /* Renumber each atom and mol in MolecularSystem.
+    * A very important function since continuous and unique numbering are prerequisites to MD and QM calculations.
+     * Nearly every molecular reader will call this function after reading the function.
+     * Other manipulations on the molecule, such as adding/removing mols/atoms, should also call this function.
     */
-    inline void AddMolecule(const Molecule &mol){molecules.push_back(std::make_shared<Molecule>(mol));}
     void RenumberAtomSerials(int startingGlobalSerial=1);
+    inline void AddMolecule(const Molecule &mol){molecules.push_back(std::make_shared<Molecule>(mol));}
     void DetectBonds(BondDetector *pDetector,bool flushCurrentBonds=true);
     void Clear(); // Discard all molecules/atoms/bonds/trajectories
+    void ClearBonds();
     inline bool Periodic(){return boundary.Periodic();}
     string Summary();
     //Geometric Operations:
@@ -191,5 +165,67 @@ public:
     vector<shared_ptr<Bond>> interMolecularBonds; // 记录分子间的Bond（这些Bond不属于任何一个Molecule）
     // # 体系的演化轨迹（如有）
     shared_ptr<Trajectory> trajectory = nullptr;
+};
+
+/* This class provides quick access to elements in a MolecularSystem.
+ * Because the elements in a MolecularSystem are not indexed, random access, for example search an atom with a
+ * given globalSerial, or check whether two atoms in the system are bonded, are slow. In addition, if the system
+ * is modified, all indexes become invalid.
+ * Therefore, we design this class MolecularSystemIndexer to build indexes of elements in a MolecularSystem
+ * and provide quick random access.  but
+ * 1. All indexes are built at the creation of this class, the MolecularSystem pass to its constructor should has all
+ * atoms and molecules correctly numbers (called MolecularSystem::RenumberAtomSerials)
+ * 2. This object becomes invalid when the MolecularSystem has been modified. The user is responsible for not
+ * using this object after the MolecularSystem has changed.
+ * 3. MolecularSystemAccessor itself will NOT modify the MolecularSystem
+ * 4. Most functions in this class would throw exceptions if failed.
+ * 4. This class uses the Proxy design pattern (or the Facade pattern?)
+ * */
+class MolecularSystemAccessor{
+public:
+    MolecularSystemAccessor(MolecularSystem &ms);
+    ~MolecularSystemAccessor() = default;
+    Atom& AtomByGlobalIndex(int globalIndex);
+    Atom& AtomByMolAndAtomIndex(int molIndex,int atomIndexInMol);
+    Atom& AtomByGlobalSerial(string globalSerial);
+    int GlobalIndexOfAtom(Atom& atom);
+    int GlobalIndexOfAtom(string globalSerial);
+    pair<int,int> MolAndLocalIndexOfAtom(Atom& atom);
+    pair<int,int> MolAndLocalIndexOfAtom(int globalIndex);
+    pair<int,int> MolAndLocalIndexOfAtom(string globalSerial);
+    Molecule& MolByIndex(int index);
+    Molecule& MolBySerial(string serial);
+    int IndexOfMolecule(Molecule& mol);
+    Molecule& ParentMolOfAtom(Atom& atom);
+    Molecule& ParentMolOfAtom(int globalIndex);
+    inline int AtomsCount(){return atoms_count_;}
+    inline int MolsCount(){return mols_count_;}
+    inline MolecularSystem& GetMolecularSystem(){return ms_;}
+    shared_ptr<Bond> GetBond(int iFromAtomIndex,int iToAtomIndex);
+    inline bool IfBonded(int iFromAtomIndex,int iToAtomIndex){
+        return GetBond(iFromAtomIndex,iToAtomIndex)!=nullptr;
+    }
+    // SetBond() only affect data within the Accessor, not the actual MolecularSystem!
+    void SetBond(int iFromAtomIndex,int iToAtomIndex, Bond &bond);
+private:
+    MolecularSystem &ms_;
+    int atoms_count_;
+    int mols_count_;
+    map<string,int> mol_serial_to_index_map_;
+    map<string,int> atom_global_serial_to_index_map_;
+    vector<int> atom_global_index_to_mol_index_vec_;
+    vector<int> atom_global_index_to_local_index_vec_;
+    vector<map<string,int>> local_serial_to_local_index_map_;
+    /* the function to build the above data structures */
+    void indexing_();
+
+    /* bonded_map_ has length of atoms_count_
+     * bonded_map_[0] shows the bonding of atom with global index 0; If atom 0 is bonded with atom 2 and 5,
+     * then bonded_map_[0] has two items {2, <the pointer to bond 0-2>} and {5, <the pointer to bond 0-5>}
+     * Note that this map is symmetric, bond 0-2 will appear both in bonded_map[0] as an item with key=2, and
+     * also appear in bonded_map_[2] as an item with key=0. */
+    vector<map<int,shared_ptr<Bond>>> bonded_map_;
+    // This data structure is built by the following function, which must be called after indexing_()
+    void build_bonding_map();
 };
 #endif //CUNIMOLSYS_UNIVERSALMOLECULARSYSTEM_H

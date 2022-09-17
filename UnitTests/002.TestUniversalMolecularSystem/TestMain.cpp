@@ -52,12 +52,13 @@ TEST_F(TestUniversalMolecularSystem,t2){
     molSys.RenumberAtomSerials();
     molSys.AddMolecule(ms2.molecules[0]->DeepCopy());
     molSys.RenumberAtomSerials();
+    MolecularSystemAccessor msa(molSys);
     cout<<molSys.Summary()<<endl;
     for(int i=0;i<molSys.AtomsCount();i++){
-        auto index = molSys.SearchAtomByGlobalSerial(to_string(i+1));
+        auto index = msa.MolAndLocalIndexOfAtom(to_string(i+1));
         EXPECT_EQ(
                 molSys[index.first][index.second].globalSerial,
-                molSys.GetAtom(i)->globalSerial
+                msa.AtomByGlobalIndex(i).globalSerial
         );
     }
 }

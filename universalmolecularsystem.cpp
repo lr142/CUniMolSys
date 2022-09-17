@@ -1,5 +1,7 @@
 #include "universalmolecularsystem.h"
 #include <sstream>
+#include <string>
+#include <iostream>
 using namespace std;
 
 string Atom::ShowAsXYZ(){
@@ -26,31 +28,31 @@ Bond& Molecule::GetBond(int index){
         throw out_of_range("Molecules::getBond");
     return *bonds[(index+nBonds)%nBonds];
 }
-vector<vector<int>>& Molecule::GetBondedMap(bool update){
-    static vector<vector<int>> bondedTo;
-    if(!update)
-        return bondedTo;
-    int nAtoms = AtomsCount();
-    bondedTo.resize(nAtoms);
-    map<string,int> serialToIndexMap;
-    for(int i=0;i<nAtoms;i++) {
-        bondedTo[i].clear();
-        serialToIndexMap[atoms[i]->serial] = i;
-    }
-    for(int i=0;i<bonds.size();i++){
-        string from = bonds[i]->atom1;
-        string to = bonds[i]->atom2;
-        auto not_found_pos = serialToIndexMap.end();
-        if(serialToIndexMap.find(from)==not_found_pos || serialToIndexMap.find(to)==not_found_pos){
-            WARNING("Dangling bond detected: ["+from+"-"+to+"] in molecule serial ="+ serial);
-        }
-        int fromIndex = serialToIndexMap[from];
-        int toIndex   = serialToIndexMap[to];
-        bondedTo[fromIndex].push_back(toIndex);
-        bondedTo[toIndex].push_back(fromIndex);
-    }
-    return bondedTo;
-}
+//vector<vector<int>>& Molecule::GetBondedMap(bool update){
+//    static vector<vector<int>> bondedTo;
+//    if(!update)
+//        return bondedTo;
+//    int nAtoms = AtomsCount();
+//    bondedTo.resize(nAtoms);
+//    map<string,int> serialToIndexMap;
+//    for(int i=0;i<nAtoms;i++) {
+//        bondedTo[i].clear();
+//        serialToIndexMap[atoms[i]->serial] = i;
+//    }
+//    for(int i=0;i<bonds.size();i++){
+//        string from = bonds[i]->atom1;
+//        string to = bonds[i]->atom2;
+//        auto not_found_pos = serialToIndexMap.end();
+//        if(serialToIndexMap.find(from)==not_found_pos || serialToIndexMap.find(to)==not_found_pos){
+//            WARNING("Dangling bond detected: ["+from+"-"+to+"] in molecule serial ="+ serial);
+//        }
+//        int fromIndex = serialToIndexMap[from];
+//        int toIndex   = serialToIndexMap[to];
+//        bondedTo[fromIndex].push_back(toIndex);
+//        bondedTo[toIndex].push_back(fromIndex);
+//    }
+//    return bondedTo;
+//}
 string Molecule::Summary() {
     ostringstream oss;
     oss<<"Molecule Serial: "<<serial<<", Name: "<<name<<", Type: "<<type
@@ -210,51 +212,51 @@ Molecule& MolecularSystem::operator[](int index){
         throw out_of_range("MolecularSystem::operator[]");
     return *molecules[(index+molCount)%molCount];
 }
-shared_ptr<Atom> MolecularSystem::GetAtom(int index){
-    int nAtoms = AtomsCount();
-    if(index<-nAtoms || index>=nAtoms)
-        return nullptr;
-    index = (index+nAtoms)%nAtoms;
-    for(int i=0;i<MoleculesCount();i++){
-        if(index < molecules[i]->AtomsCount())
-            return molecules[i]->atoms[index];
-        else
-            index -= molecules[i]->AtomsCount();
-    }
-    return nullptr;
-}
-int MolecularSystem::SearchMoleculeBySerial(string molSerial,bool update){
-    static map<string,int> serialToIndexMap;
-    if(serialToIndexMap.empty() || update){
-        serialToIndexMap.clear();
-        for(int i=0;i<MoleculesCount();i++){
-            serialToIndexMap[(*this)[i].serial] = i;
-        }
-    }
-    if(serialToIndexMap.find(molSerial) != serialToIndexMap.end())
-        return serialToIndexMap[molSerial];
-    else
-        return -1;
-}
-std::pair<int,int> MolecularSystem::SearchAtomByGlobalSerial(string atomGlobalSerial,bool update){
-    static map<string,pair<int,int>> serialToIndexMap;
-    if(serialToIndexMap.empty() || update){
-        serialToIndexMap.clear();
-        for(int i=0;i<MoleculesCount();i++){
-            for(int j=0;j<(*this)[i].AtomsCount();j++){
-                serialToIndexMap[(*this)[i][j].globalSerial] = make_pair(i,j);
-            }
-        }
-    }
-    if(serialToIndexMap.find(atomGlobalSerial) != serialToIndexMap.end())
-        return serialToIndexMap[atomGlobalSerial];
-    else
-        return make_pair(-1,-1);
-}
+//shared_ptr<Atom> MolecularSystem::GetAtom(int index){
+//    int nAtoms = AtomsCount();
+//    if(index<-nAtoms || index>=nAtoms)
+//        return nullptr;
+//    index = (index+nAtoms)%nAtoms;
+//    for(int i=0;i<MoleculesCount();i++){
+//        if(index < molecules[i]->AtomsCount())
+//            return molecules[i]->atoms[index];
+//        else
+//            index -= molecules[i]->AtomsCount();
+//    }
+//    return nullptr;
+//}
+//int MolecularSystem::SearchMoleculeBySerial(string molSerial,bool update){
+//    static map<string,int> serialToIndexMap;
+//    if(serialToIndexMap.empty() || update){
+//        serialToIndexMap.clear();
+//        for(int i=0;i<MoleculesCount();i++){
+//            serialToIndexMap[(*this)[i].serial] = i;
+//        }
+//    }
+//    if(serialToIndexMap.find(molSerial) != serialToIndexMap.end())
+//        return serialToIndexMap[molSerial];
+//    else
+//        return -1;
+//}
+//std::pair<int,int> MolecularSystem::SearchAtomByGlobalSerial(string atomGlobalSerial,bool update){
+//    static map<string,pair<int,int>> serialToIndexMap;
+//    if(serialToIndexMap.empty() || update){
+//        serialToIndexMap.clear();
+//        for(int i=0;i<MoleculesCount();i++){
+//            for(int j=0;j<(*this)[i].AtomsCount();j++){
+//                serialToIndexMap[(*this)[i][j].globalSerial] = make_pair(i,j);
+//            }
+//        }
+//    }
+//    if(serialToIndexMap.find(atomGlobalSerial) != serialToIndexMap.end())
+//        return serialToIndexMap[atomGlobalSerial];
+//    else
+//        return make_pair(-1,-1);
+//}
 void MolecularSystem::RenumberAtomSerials(int startingGlobalSerial) {
-    // Call SearchAtomByGlobalSerial(true) to record the old
-    // Serials locations.
-    SearchAtomByGlobalSerial("",true);
+    // Build a MolecularSystemAccessor to save the old mappings
+    MolecularSystemAccessor msa(*this);
+
     // Also, need to record the old atoms serials within each molecule
     vector<map<string,int>> oldInMoleculeSerialToIndexMaps;
     for(int iMol=0;iMol<MoleculesCount();iMol++){
@@ -286,18 +288,14 @@ void MolecularSystem::RenumberAtomSerials(int startingGlobalSerial) {
     // Finally take care of the inter-molecule bonds:
     for(int iBond=0;iBond<this->interMolecularBonds.size();iBond++){
         auto pBond = this->interMolecularBonds[iBond];
-        // Must call the search function by update=false, which gives the old info
-        auto iFrom = SearchAtomByGlobalSerial(pBond->atom1,false);
-        auto iTo   = SearchAtomByGlobalSerial(pBond->atom2,false);
+        // Info fetched from the MolecularSystemAccessor msa are old info.
+        auto iFrom = msa.MolAndLocalIndexOfAtom(pBond->atom1);
+        auto iTo   = msa.MolAndLocalIndexOfAtom(pBond->atom2);
         auto strFrom = (*this)[iFrom.first][iFrom.second].globalSerial;
         auto strTo     = (*this)[iTo.first][iTo.second].globalSerial;
         pBond->atom1 = strFrom;
         pBond->atom2 = strTo;
     }
-    // This last steps are optional, manually update the static cached data within
-    // Various functions
-    SearchAtomByGlobalSerial("",true);
-    SearchMoleculeBySerial("",true);
 }
 void MolecularSystem::DetectBonds(BondDetector *pDetector, bool flushCurrentBonds){
     pDetector->Detect(*this,flushCurrentBonds);
@@ -306,6 +304,12 @@ void MolecularSystem::Clear(){
     molecules.clear();
     interMolecularBonds.clear();
     trajectory = nullptr;
+}
+void MolecularSystem::ClearBonds() {
+    for(int i=0;i<MoleculesCount();i++){
+        molecules[i]->bonds.clear();
+    }
+    interMolecularBonds.clear();
 }
 string MolecularSystem::Summary(){
     int bondCount = 0;
@@ -320,20 +324,27 @@ string MolecularSystem::Summary(){
 }
 
 void MolecularSystem::Translate(XYZ offset){
-    int nAtoms = AtomsCount();
-    for(int i=0;i<nAtoms;i++){
-        GetAtom(0)->xyz+=offset;
+    for(int iMol=0;iMol<MoleculesCount();iMol++){
+        for(int iAtom=0;iAtom<(*this)[iMol].AtomsCount();iAtom++){
+            (*this)[iMol][iAtom].xyz += offset;
+        }
     }
 }
 void MolecularSystem::Rotate(double clockwise_degree, XYZ axis){
     int nAtom = AtomsCount();
     XYZ* newCoords = new XYZ[nAtom];
-    for(int i=0;i<nAtom;i++){
-        newCoords[i] = GetAtom(i)->xyz;
+    int counter = 0;
+    for(int iMol=0;iMol<MoleculesCount();iMol++){
+        for(int iAtom=0;iAtom<(*this)[iMol].AtomsCount();iAtom++){
+            newCoords[counter++] = (*this)[iMol][iAtom].xyz;
+        }
     }
     XYZRotate(newCoords, nAtom, clockwise_degree, axis);
-    for(int i=0;i<nAtom;i++){
-        GetAtom(i)->xyz = newCoords[i] ;
+    counter = 0;
+    for(int iMol=0;iMol<MoleculesCount();iMol++){
+        for(int iAtom=0;iAtom<(*this)[iMol].AtomsCount();iAtom++){
+            (*this)[iMol][iAtom].xyz = newCoords[counter++];
+        }
     }
     delete [] newCoords;
 }
@@ -346,11 +357,132 @@ void MolecularSystem::FractionalToCartesian(){
     X = uvw[0][0];
     Y = uvw[1][1];
     Z = uvw[2][2];
-    int nAtom = AtomsCount();
-    for(int i=0;i<nAtom;i++){
-        auto &xyz = GetAtom(i)->xyz;
-        xyz[0] /= X;
-        xyz[1] /= Y;
-        xyz[2] /= Z;
+    for(int iMol=0;iMol<MoleculesCount();iMol++){
+        for(int iAtom=0;iAtom<(*this)[iMol].AtomsCount();iAtom++){
+            (*this)[iMol][iAtom].xyz[0] *= X;
+            (*this)[iMol][iAtom].xyz[1] *= Y;
+            (*this)[iMol][iAtom].xyz[2] *= Z;
+        }
     }
+}
+
+MolecularSystemAccessor::MolecularSystemAccessor(MolecularSystem &ms):ms_(ms){
+    indexing_();
+    build_bonding_map();
+}
+void MolecularSystemAccessor::indexing_(){
+    mols_count_ = ms_.MoleculesCount();
+    int atomCounter = 0;
+    for(int iMol=0;iMol<mols_count_;iMol++){
+        string molSerial = ms_[iMol].serial;
+//        if(mol_serial_to_index_map_.find(molSerial)!=mol_serial_to_index_map_.end())
+//            ERROR("Molecule Serial not unique, call MolecularSystem::RenumberAtoms() at first!");
+
+        mol_serial_to_index_map_[molSerial] = iMol;
+        local_serial_to_local_index_map_.push_back(map<string,int>());
+
+        for(int iAtom=0;iAtom<ms_[iMol].AtomsCount();iAtom++){
+            atom_global_index_to_mol_index_vec_.push_back(iMol);
+            atom_global_index_to_local_index_vec_.push_back(iAtom);
+
+            string globalSerial = ms_[iMol][iAtom].globalSerial;
+//            if(atom_global_serial_to_index_map_.find(globalSerial)
+//            != atom_global_serial_to_index_map_.end())
+//                ERROR("Atom Global Serial not unique, call MolecularSystem::RenumberAtoms() at first!");
+            atom_global_serial_to_index_map_[ms_[iMol][iAtom].globalSerial] = atomCounter;
+            ++atomCounter;
+
+            string localSerial = ms_[iMol][iAtom].serial;
+            local_serial_to_local_index_map_[iMol][localSerial] = iAtom;
+        }
+    }
+    atoms_count_ = atomCounter;
+}
+Atom &MolecularSystemAccessor::AtomByGlobalIndex(int globalIndex) {
+    auto indexes = MolAndLocalIndexOfAtom(globalIndex);
+    return ms_[indexes.first][indexes.second];
+}
+Atom &MolecularSystemAccessor::AtomByMolAndAtomIndex(int molIndex, int atomIndexInMol) {
+    return ms_[molIndex][atomIndexInMol];
+}
+Atom &MolecularSystemAccessor::AtomByGlobalSerial(string globalSerial) {
+//    if(atom_global_serial_to_index_map_.find(globalSerial)
+//                == atom_global_serial_to_index_map_.end())
+//        throw runtime_error("Atom with globalSerial ="+ globalSerial +" ot found.");
+    int globalIndex = atom_global_serial_to_index_map_[globalSerial];
+    return AtomByGlobalIndex(globalIndex);
+}
+int MolecularSystemAccessor::GlobalIndexOfAtom(Atom& atom){
+    return atom_global_serial_to_index_map_[atom.globalSerial];
+}
+int MolecularSystemAccessor::GlobalIndexOfAtom(string globalSerial){
+    return atom_global_serial_to_index_map_[globalSerial];
+}
+pair<int, int> MolecularSystemAccessor::MolAndLocalIndexOfAtom(Atom &atom) {
+    int globalIndex = atom_global_serial_to_index_map_[atom.globalSerial];
+    return MolAndLocalIndexOfAtom(globalIndex);
+}
+pair<int, int> MolecularSystemAccessor::MolAndLocalIndexOfAtom(int globalIndex) {
+    int molIndex = atom_global_index_to_mol_index_vec_[globalIndex];
+    int atomIndex = atom_global_index_to_local_index_vec_[globalIndex];
+    return make_pair(molIndex,atomIndex);
+}
+
+pair<int, int> MolecularSystemAccessor::MolAndLocalIndexOfAtom(string globalSerial) {
+    int globalIndex = atom_global_serial_to_index_map_[globalSerial];
+    return MolAndLocalIndexOfAtom(globalIndex);
+}
+
+Molecule &MolecularSystemAccessor::MolByIndex(int index) {
+    return ms_[index];
+}
+Molecule &MolecularSystemAccessor::MolBySerial(string serial) {
+    return ms_[mol_serial_to_index_map_[serial]];
+}
+int MolecularSystemAccessor::IndexOfMolecule(Molecule &mol) {
+    return mol_serial_to_index_map_[mol.serial];
+}
+Molecule &MolecularSystemAccessor::ParentMolOfAtom(Atom &atom) {
+    int globalSerial = atom_global_serial_to_index_map_[atom.globalSerial];
+    return ParentMolOfAtom(globalSerial);
+}
+Molecule &MolecularSystemAccessor::ParentMolOfAtom(int globalIndex) {
+    auto indexes = MolAndLocalIndexOfAtom(globalIndex);
+    return ms_[indexes.first];
+}
+void MolecularSystemAccessor::build_bonding_map(){
+    bonded_map_.resize(AtomsCount());
+    // Local Bonds
+    for(int iMol=0;iMol<ms_.MoleculesCount();iMol++){
+        for(int iBond=0;iBond<ms_[iMol].BondsCount();iBond++){
+            shared_ptr<Bond> pB = ms_[iMol].bonds[iBond];
+            int iFromLocalIndex = local_serial_to_local_index_map_[iMol][pB->atom1];
+            int iToLocalIndex =   local_serial_to_local_index_map_[iMol][pB->atom2];
+            int iFromGlobalIndex = GlobalIndexOfAtom(ms_[iMol][iFromLocalIndex]);
+            int iToGlobalIndex =   GlobalIndexOfAtom(ms_[iMol][iToLocalIndex]);
+            bonded_map_[iFromGlobalIndex].insert(make_pair(iToGlobalIndex,pB));
+            bonded_map_[iToGlobalIndex].insert(make_pair(iFromGlobalIndex,pB));
+        }
+    }
+    // Global Bonds
+    for(int iBond=0;iBond<ms_.interMolecularBonds.size();iBond++){
+        shared_ptr<Bond> pB = ms_.interMolecularBonds[iBond];
+        int iFromGlobalIndex = GlobalIndexOfAtom(pB->atom1);
+        int iToGlobalIndex   = GlobalIndexOfAtom(pB->atom2);
+        bonded_map_[iFromGlobalIndex].insert(make_pair(iToGlobalIndex,pB));
+        bonded_map_[iToGlobalIndex].insert(make_pair(iFromGlobalIndex,pB));
+    }
+}
+
+shared_ptr<Bond> MolecularSystemAccessor::GetBond(int iFromAtomIndex,int iToAtomIndex){
+    auto& the_map = bonded_map_[iFromAtomIndex];
+    if(the_map.find(iToAtomIndex)!=the_map.end())
+        return the_map[iToAtomIndex];
+    else
+        return nullptr;
+}
+void MolecularSystemAccessor::SetBond(int iFromAtomIndex,int iToAtomIndex,Bond &bond){
+    shared_ptr<Bond> newBond = make_shared<Bond>(bond);
+    bonded_map_[iFromAtomIndex].insert(make_pair(iToAtomIndex,newBond));
+    bonded_map_[iToAtomIndex].insert(make_pair(iFromAtomIndex,newBond));
 }

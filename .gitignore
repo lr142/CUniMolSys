@@ -7,6 +7,8 @@ cmake-build*
 build
 include/*.h
 lib/*.a
+resources.h
+
 
 # Common Ouputs of Test Examples
 dump*

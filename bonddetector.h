@@ -30,9 +30,9 @@ public:
     /* generate the list of atoms near the coord position. this function will return
      * all atoms in the same pGrid_ as well as adjacent grids */
     bool NearbyAtoms(XYZ coord,vector<AtomInGrid>& output);
-    void _showContent_Debug(MolecularSystem &ms,string dumpfilename);
-    Molecule _debug_ShowGridContentAsMolecule(int ix, int iy, int iz, MolecularSystem &ms);
-    Molecule _debug_ShowGridContentAsMolecule(vector<AtomInGrid> &vec, MolecularSystem &ms);
+    void _showContent_Debug(MolecularSystemAccessor &ms, string dumpfilename);
+    Molecule _debug_ShowGridContentAsMolecule(int ix, int iy, int iz, MolecularSystemAccessor &ms);
+    Molecule _debug_ShowGridContentAsMolecule(vector<AtomInGrid> &vec, MolecularSystemAccessor &ms);
 protected: //
     int Lx_;
     int Ly_;
@@ -76,7 +76,7 @@ private:
     void createGridsForPeriodic();
     void createGridsForNonPeriodic();
     void removeAtomListDuplication(vector<AtomInGrid> &vec);
-    MolecularSystem *pMS_;
+    MolecularSystemAccessor msa;
     shared_ptr<GridForNeighList> pGrid_;
     double gridsize_;
     XYZ gridOrigin_;
@@ -105,13 +105,10 @@ public:
     void ClearRules();
     void ParseFile(string filename);
     void Detect(MolecularSystem &ms,bool flushCurrentBonds=true) override;
-    void Extend(string file_name_of_another_rules_set);
-    int SearchRules(MolecularSystem &ms, shared_ptr<Atom> pFromAtom, shared_ptr<Atom> pToAtom, vector<BondRule> &rule_vec);
-    void FlushAllBonds(MolecularSystem &ms);
-    void BuildFoundBondsMap(MolecularSystem &ms,set<pair<int,int>> &foundBonds);
-    void AddBond(MolecularSystem &ms,shared_ptr<Atom> pFromAtom, shared_ptr<Atom> pToAtom, string bondType);
+    void AddBond(MolecularSystemAccessor &msa, int iFromAtom, int iToAtom, string bondType);
     void SetGlobalCutoff(double cutoff);
 private:
+    int searchRules(MolecularSystemAccessor &msa, Atom &fromAtom, Atom &toAtom, vector<BondRule> &rule_vec);
     double globalCutoff_;
     map<string,vector<BondRule>> rules_;
     shared_ptr<NeighborList> pNlist_;
