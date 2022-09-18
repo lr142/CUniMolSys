@@ -196,6 +196,7 @@ public:
     }
     // SetBond() only affect data within the Accessor, not the actual MolecularSystem!
     void SetBond(int iFromAtomIndex,int iToAtomIndex, Bond &bond);
+    inline vector<map<int,shared_ptr<Bond>>>& GetBondedMap(){return bonded_map_;}
 private:
     MolecularSystem &ms_;
     int atoms_count_;

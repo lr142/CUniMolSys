@@ -11,7 +11,7 @@ GridForNeighList::GridForNeighList(double SystemLx, double SystemLy, double Syst
     Lx_ = int(ceil(SystemLx/GridSize()));
     Ly_ = int(ceil(SystemLy/GridSize()));
     Lz_ = int(ceil(SystemLz/GridSize()));
-    if(Lx_<=0 || Ly_<=0 || Lz_<=0 || gridsize<=0 ){
+    if(Lx_<=0 or Ly_<=0 or Lz_<=0 or gridsize<=0 ){
         ERROR("In GridForNeighList(), one of the dimension <=0");
     }else if(double(Lx_)*Ly_*Lz_ > 1000000000 ){ // > 1 billion, convert to double to prevent overflow
         ERROR("In GridForNeighList(), too many grids: "+to_string(double(Lx_)*Ly_*Lz_)+", check gridsize_");
@@ -40,7 +40,7 @@ bool GridForNeighList::GridPosition(XYZ coord, int &ix, int &iy, int &iz) {
     ix = (int)floor(coord[0]/GridSize());
     iy = (int)floor(coord[1]/GridSize());
     iz = (int)floor(coord[2]/GridSize());
-    if(ix<0||ix>=Lx()  || iy<0||iy>=Ly()   || iz<0||iz>=Lz())
+    if(ix<0 or ix>=Lx() or iy<0 or iy>=Ly() or iz<0 or iz>=Lz())
         return false;
     else
         return true;
@@ -100,7 +100,7 @@ bool GridForNeighList::NearbyAtoms(XYZ coord, vector<AtomInGrid> &outputVec) {
         pc[0] += ix;
         pc[1] += iy;
         pc[2] += iz;
-        if(pc[0]<0 || pc[0]>=Lx() || pc[1]<0 || pc[1]>=Ly() || pc[2]<0 || pc[2] >= Lz())
+        if(pc[0]<0 or pc[0]>=Lx() or pc[1]<0 or pc[1]>=Ly() or pc[2]<0 or pc[2] >= Lz())
             active[counter] = false;
     }
     // Finally, report atoms in the active cells
@@ -334,13 +334,13 @@ void NeighborList::generateEquivalentPositionsForPBC(XYZ xyzInCell, vector<XYZ> 
     if(xyzInCell[2] < gridsize_)
         outVec.push_back(xyzInCell + XYZ(0, 0, systemLengths_[2]));
     // also need the xy, yz, xz, xyz cross terms.
-    if(xyzInCell[0] < gridsize_ && xyzInCell[1] < gridsize_)
+    if(xyzInCell[0] < gridsize_ and xyzInCell[1] < gridsize_)
         outVec.push_back(xyzInCell + XYZ(systemLengths_[0], systemLengths_[1], 0));
-    if(xyzInCell[0] < gridsize_ && xyzInCell[2] < gridsize_)
+    if(xyzInCell[0] < gridsize_ and xyzInCell[2] < gridsize_)
         outVec.push_back(xyzInCell + XYZ(systemLengths_[0], 0, systemLengths_[2]));
-    if(xyzInCell[1] < gridsize_ && xyzInCell[2] < gridsize_)
+    if(xyzInCell[1] < gridsize_ and xyzInCell[2] < gridsize_)
         outVec.push_back(xyzInCell + XYZ(0, systemLengths_[1], systemLengths_[2]));
-    if(xyzInCell[0] < gridsize_ && xyzInCell[1] < gridsize_ && xyzInCell[2] < gridsize_)
+    if(xyzInCell[0] < gridsize_ and xyzInCell[1] < gridsize_ && xyzInCell[2] < gridsize_)
         outVec.push_back(xyzInCell + XYZ(systemLengths_[0], systemLengths_[1], systemLengths_[2]));
 }
 
@@ -442,6 +442,8 @@ void BondDetectorByRules::ClearRules(){
     rules_.clear();
 }
 void BondDetectorByRules::Detect(MolecularSystem &ms, bool flushCurrentBonds) {
+    if(ms.AtomsCount()==0)
+        return;
     if(flushCurrentBonds)
         ms.ClearBonds();
     MolecularSystemAccessor msa(ms);
@@ -493,7 +495,7 @@ int BondDetectorByRules::searchRules(MolecularSystemAccessor &msa, Atom &fromAto
     int matched_iBond = -1;
     for(int iBond=0;iBond<rule_vec.size();iBond++){
         BondRule &rule = rule_vec[iBond];
-        if(dist_sqr<rule.low_sqr || dist_sqr>rule.high_sqr)
+        if(dist_sqr<rule.low_sqr or dist_sqr>rule.high_sqr)
             continue;
         // Only need to check the distance now
         matched_iBond = iBond;
