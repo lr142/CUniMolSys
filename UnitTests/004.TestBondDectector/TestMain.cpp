@@ -9,7 +9,7 @@
 #include <fstream>
 using namespace std;
 
-class TestBD:public ::testing::Test{
+class TestSplitting: public ::testing::Test{
 protected:
     void SetUp() override{
         string paths[] = {
@@ -53,7 +53,7 @@ protected:
 };
 
 // Test if there are memory leak
-//TEST_F(TestBD,memory){
+//TEST_F(TestSplitting,memory){
 //    while(true) {
 //        GridForNeighList pGrid_(50, 50, 50, 0.37);
 //        int nAtom = ms[1].AtomsCount();
@@ -65,7 +65,7 @@ protected:
 //}
 
 // Test if the GridForNeighList works fine
-//TEST_F(TestBD,t1){
+//TEST_F(TestSplitting,t1){
 //    GridForNeighList pGrid_(50,50,50,1.4);
 //    int nAtom = ms[1].AtomsCount();
 //    for(int i=0;i<nAtom;i++){
@@ -76,7 +76,7 @@ protected:
 //}
 
 // Test if the GridForNeighList works fine
-//TEST_F(TestBD,t2){
+//TEST_F(TestSplitting,t2){
 //    GridForNeighList pGrid_(50,50,50,4.5);
 //    int nAtom = ms[1].AtomsCount();
 //    for(int i=0;i<nAtom;i++){
@@ -103,7 +103,7 @@ protected:
 //}
 
 // Test the Neighborlist generation
-//TEST_F(TestBD,neighlist1){
+//TEST_F(TestSplitting,neighlist1){
 //    MolecularSystem thems =
 //            SelectRegionFromMolecularSystem(ms[1],
 //            XYZ(0,0,0),XYZ(50,50,50));
@@ -127,7 +127,7 @@ protected:
 //}
 
 // Test Bond Detection
-TEST_F(TestBD,findbonds){
+TEST_F(TestSplitting, findbonds){
     for(int iNo=0;iNo<ms.size();iNo++) {
         MolecularSystem &thems = ms[iNo];
         thems.RenumberAtomSerials();

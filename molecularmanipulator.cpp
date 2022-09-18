@@ -1,5 +1,6 @@
 #include "molecularmanipulator.h"
 #include <random>
+#include <stack>
 using namespace std;
 void MolSysReorganize(MolecularSystem &ms, vector<int>& scheme){
     MolecularSystemAccessor oldMolAccessor(ms);
@@ -90,6 +91,7 @@ void MolSysReorganize(MolecularSystem &ms, vector<int>& scheme){
     // but this is not handed by this function.
     ms.molecules = newMS.molecules;
     ms.interMolecularBonds = newMS.interMolecularBonds;
+    ms.RenumberAtomSerials();
 }
 
 void MolSysRandomSplit(MolecularSystem &ms, int N) {
@@ -111,5 +113,60 @@ void MolSysRandomSplit(MolecularSystem &ms, int N) {
 
 void MolSysReduceToSingleMolecule(MolecularSystem &ms) {
     vector<int> scheme(ms.AtomsCount(),0);
+    MolSysReorganize(ms,scheme);
+}
+
+void MolSysSplitByConnectivity(MolecularSystem &ms) {
+    // This is a standard graph exploration
+    // We will use Depth-First-Search (DFS) for simplicity
+    int nAtoms = ms.AtomsCount();
+    if(nAtoms==0)
+        return;
+    MolecularSystemAccessor msa(ms);
+
+    vector<bool> visited(nAtoms,false);
+    vector<int> parent(nAtoms); // parent[i] == i means this is a root node (or unvisited)
+    for(int i=0;i<nAtoms;i++)
+        parent[i] = i; // parent == itself means a root node
+    for(int root=0;root<nAtoms;root++){
+        if(visited[root])
+            continue;
+        visited[root] = true;
+        stack<int> to_visit;
+        to_visit.push(root);
+        while(!to_visit.empty()){
+            int node = to_visit.top();
+            to_visit.pop();
+            for(auto &item:msa.GetBondedMap()[node]){
+                int iToAtom = item.first;
+                if(visited[iToAtom])
+                    continue;
+                else{
+                    visited[iToAtom] = true;
+                    parent[iToAtom] = node;
+                    to_visit.push(iToAtom);
+                }
+            }
+        }
+
+    }
+    // Find the root of every atom
+    for(int i=0;i<nAtoms;i++){
+        while(parent[parent[i]] != parent[i])
+            parent[i] = parent[parent[i]];
+    }
+    // Find how many roots (trees) are there
+    int treeCount = 0;
+    map<int,int> rootToTreeMap;
+    for(int i=0;i<nAtoms;i++){
+        int root= parent[i];
+        if(rootToTreeMap.find(root) == rootToTreeMap.end())
+            rootToTreeMap.insert(make_pair(root,treeCount++));
+    }
+    // Finally generate the corresponding vector
+    vector<int> scheme(nAtoms);
+    for(int i=0;i<nAtoms;i++){
+        scheme[i] = rootToTreeMap[parent[i]];
+    }
     MolSysReorganize(ms,scheme);
 }

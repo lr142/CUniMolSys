@@ -19,4 +19,8 @@ void MolSysRandomSplit(MolecularSystem &ms, int N);
 
 /* Combine multiple molecules in a molecular system into a single molecule */
 void MolSysReduceToSingleMolecule(MolecularSystem &ms);
+
+/* Reorganize a MolecularSystem into multiple molecules according to connectivity.
+ * May increase or decrease the number of molecules */
+void MolSysSplitByConnectivity(MolecularSystem &ms);
 #endif //CUNIMOLSYS_MOLECULARMANIPULATOR_H
