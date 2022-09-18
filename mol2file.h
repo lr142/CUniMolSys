@@ -6,6 +6,7 @@ public:
     Mol2File(bool writeElementInsteadOfType=true);
     bool Read(MolecularSystem &ms, string filename) override;
     bool Write(MolecularSystem &ms, string filename) override;
+
 private:
     bool parseAtomLine(string line,Atom &a);
     bool parseBondLine(string line,Bond &b);

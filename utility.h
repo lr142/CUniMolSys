@@ -8,6 +8,8 @@ using std::vector;
 using std::string;
 using std::pair;
 
+static const double MY_PI = 3.14159265358979323846264338327950;
+
 // Resource Files Path
 static string DATAFILESPATH=_DATAFILESPATH_;
 

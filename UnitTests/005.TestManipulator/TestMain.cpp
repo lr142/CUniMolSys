@@ -1,11 +1,10 @@
 #include <iostream>
 #include "gtest/gtest.h"
 #include "utility.h"
-#include "mol2file.h"
-#include "xyzfile.h"
 #include "universalmolecularsystem.h"
 #include "bonddetector.h"
 #include "molecularmanipulator.h"
+#include "opener.h"
 #include <vector>
 #include <fstream>
 #include <random>
@@ -25,7 +24,7 @@ protected:
         };
         for(auto path:paths) {
             ms.push_back(MolecularSystem());
-            ms[ms.size() - 1].Read(&mol2file, path);
+            QuickOpen(ms[ms.size() - 1],path);
         }
         // ms[0] is a special case: empty system
         ms[0].Clear();ms[0].ClearBonds();
@@ -33,13 +32,11 @@ protected:
         e.seed(1);
     }
     vector<MolecularSystem> ms;
-    Mol2File mol2file;
-    XYZFile xyzfile;
     default_random_engine e;
-
     MolecularSystem SelectRegionFromMolecularSystem(MolecularSystem &ms, XYZ origin, XYZ lengths);
     void ConnectEveryAtomInEachMolecule(MolecularSystem &ms);
 };
+
 // Select a specific region in the MolSys.
 MolecularSystem TestSplitting::SelectRegionFromMolecularSystem(MolecularSystem &ms, XYZ origin, XYZ lengths){
     MolecularSystem newMS;
@@ -88,9 +85,8 @@ void TestSplitting::ConnectEveryAtomInEachMolecule(MolecularSystem &ms){
     }
 }
 
-
-// Test Randomly splitting a molecule, combine them, and find bonds
-TEST_F(TestSplitting, split_and_find_bonds){
+/* Test Randomly splitting a molecule, combine them, and find bonds */
+TEST_F(TestSplitting, DISABLED_split_and_find_bonds){
 
     uniform_real_distribution<double> urd(-5,5);
 
@@ -131,13 +127,12 @@ TEST_F(TestSplitting, split_and_find_bonds){
 
         }
 
-        thems.Write(&mol2file, DATAFILESPATH + "/../dump" + to_string(iNo)+".mol2");
+        QuickSave(thems,DATAFILESPATH + "/../dump" + to_string(iNo)+".mol2");
     }
 }
 
-
-// Test randomly split a molecule, delete all inter-molecular bonds, split the molsys into multiple molecules
-TEST_F(TestSplitting, divide_by_connectivity){
+/* Test randomly split a molecule, delete all inter-molecular bonds, split the molsys into multiple molecules */
+TEST_F(TestSplitting, DISABLED_divide_by_connectivity){
     uniform_real_distribution<double> urd(-5,5);
     for(int iNo=1;iNo<ms.size();iNo++) {
 
@@ -185,3 +180,59 @@ TEST_F(TestSplitting, divide_by_connectivity){
         // thems.Write(&mol2file, DATAFILESPATH + "/../dump" + to_string(iNo)+".mol2");
     }
 }
+
+
+/* Extend a system */
+TEST(Extend,DISABLED_t1) {
+    MolecularSystem ms;
+    string pathname = DATAFILESPATH + "/../UnitTests/005.TestManipulator/";
+    QuickOpen(ms, pathname + "PolyPS_broken.mol2");
+    cout << ms.Summary() << endl;
+    MolSysSplitByConnectivity(ms);
+    ms.DetectBonds(GetDefaultBondDetector(5.0));
+    auto original = ms.DeepCopy();
+    cout << "Original : "<<ms.Summary() << endl;
+    int nInterBonds = ms.interMolecularBonds.size();
+    int nTotalBonds = ms.BondsCount();
+    int nAtoms = ms.AtomsCount();
+    int N = 4;
+    for (int i = 0; i < N; i++){
+        auto temp = original.DeepCopy();
+        MolSysExtend(ms, temp);
+    }
+    cout << ms.Summary() << endl;
+    EXPECT_EQ(ms.AtomsCount(),nAtoms*(N+1));
+    EXPECT_EQ(ms.BondsCount(),nTotalBonds*(N+1));
+    EXPECT_EQ(ms.interMolecularBonds.size(),nInterBonds*(N+1));
+}
+
+/* Periodically duplication */
+TEST(PeriodicDuplication,case1) {
+    MolecularSystem ms;
+    string pathname = DATAFILESPATH + "/../UnitTests/005.TestManipulator/";
+    QuickOpen(ms, pathname + "TertAmide.mol2");
+    cout << ms.Summary() << endl;
+    cout<<ms.boundary.GetU()<<ms.boundary.GetV()<<ms.boundary.GetW()<<endl;
+
+    int ix = 4;
+    int iy = 3;
+    int iz = 5;
+    int product = ix*iy*iz;
+    int nInterBonds = ms.interMolecularBonds.size();
+    int nTotalBonds = ms.BondsCount();
+    int nAtoms = ms.AtomsCount();
+
+    MolSysDuplicatePeriodically(ms,4,3,5,true);
+    cout << ms.Summary() << endl;
+    cout<<ms.boundary.GetU()<<ms.boundary.GetV()<<ms.boundary.GetW()<<endl;
+
+    MolSysReduceToSingleMolecule(ms);
+    cout << ms.Summary() << endl;
+    QuickSave(ms,DATAFILESPATH+"/../dump.mol2");
+    QuickSave(ms,DATAFILESPATH+"/../dump.xyz");
+
+    EXPECT_EQ(ms.AtomsCount(),nAtoms*product);
+    EXPECT_EQ(ms.BondsCount(),nTotalBonds*product);
+    EXPECT_EQ(ms.interMolecularBonds.size(),nInterBonds*product);
+}
+

@@ -252,7 +252,7 @@ void XYZRotate(XYZ* coords,int numAtoms,double degree_clockwise,XYZ axis){
     double ry = axis[1];
     double rz = axis[2];
     // The rotational matrix was copied from a previous code. I forgot its reference...
-    double phi = degree_clockwise * 3.14159265359 / 180.0;
+    double phi = degree_clockwise * MY_PI / 180.0;
     double c = cos(phi);
     double s = sin(phi);
     double RMatrix[3][3];

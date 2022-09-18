@@ -154,6 +154,7 @@ MolecularSystem MolecularSystem::DeepCopyWithTrajectory(){
 }
 MolecularSystem MolecularSystem::DeepCopy(){
     MolecularSystem copy(this->name);
+    copy.boundary = this->boundary;
     for(int i=0;i<MoleculesCount();i++){
         shared_ptr<Molecule> pNewMol = make_shared<Molecule>();
         *pNewMol = this->molecules[i]->DeepCopy();

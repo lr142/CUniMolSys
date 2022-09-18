@@ -23,4 +23,18 @@ void MolSysReduceToSingleMolecule(MolecularSystem &ms);
 /* Reorganize a MolecularSystem into multiple molecules according to connectivity.
  * May increase or decrease the number of molecules */
 void MolSysSplitByConnectivity(MolecularSystem &ms);
+
+/* Extend the system by copied molecules, bonds, and inter-molecular bonds to dest
+ * The contents of src molecules are used by dest (the shared_ptrs are copied)
+ * Therefore if the user wants to continue using src after this function, the user
+ * should pass a src.Deepcopy() instead of src into this function
+ */
+void MolSysExtend(MolecularSystem &dest, MolecularSystem &src);
+
+/* Duplicate a system periodically.
+ * ix,iy,iz must >= 1
+ * Works only for periodic systems. Supports non-orthogonal system!
+ * the boundary info of the ms will also be modified if set_bound flag is set to true */
+void MolSysDuplicatePeriodically(MolecularSystem &ms, int ix, int iy, int iz, bool set_bound);
 #endif //CUNIMOLSYS_MOLECULARMANIPULATOR_H
+

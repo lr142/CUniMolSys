@@ -1,3 +1,4 @@
+#include <cmath>
 #include "mol2file.h"
 #include <iostream>
 #include <fstream>
@@ -111,17 +112,26 @@ bool Mol2File::parseBondLine(string line,Bond &b) {
 }
 bool Mol2File::parseBoundaryLine(string line, Boundary &boundary){
    // Format: lx ly lz A B C space_group setting
-   // Here I'm assuming it's an orthogonal cell
+   // Here I'm assuming C is along the Z axis, and A is along the X axis, B is in X-Y plane
+   // i.e. A=B=90, C may not to 90.
+
    auto parts = StringSplit(line);
+   double lx,ly,lz,A,B,C;
    try{
-       double lx = stof(parts[0]);
-       double ly = stof(parts[1]);
-       double lz = stof(parts[2]);
-       boundary.SetOrigin(XYZ(0,0,0));
-       boundary.SetUVW(XYZ(lx,0,0),XYZ(0,ly,0),XYZ(0,0,lz));
+       lx = stof(parts[0]);
+       ly = stof(parts[1]);
+       lz = stof(parts[2]);
+       A  = stof(parts[3]);
+       B  = stof(parts[4]);
+       C  = stof(parts[5]);
    }catch(exception e){
        return false;
    }
+   boundary.SetOrigin(XYZ(0,0,0));
+   XYZ u = XYZ(lx,0,0);
+   XYZ v = XYZ(ly*cos(C/180*MY_PI), ly*sin(C/180*MY_PI),0);
+   XYZ w = XYZ(0,0,lz);
+   boundary.SetUVW(u,v,w);
    return true;
 }
 void Mol2File::showError(int lineno,string line,string filename,string comment,bool fatal){
@@ -144,10 +154,16 @@ bool Mol2File::Write(MolecularSystem &ms, std::string filename) {
         writeAMolecule(ms[i],ofs);
     if(ms.Periodic()){
         ofs<<"@<TRIPOS>CRYSIN"<<endl;
+        XYZ v = ms.boundary.GetV();
+        double C = atan(v[1]/v[0])/MY_PI*180.0;
+        if(C<0)
+            C+=180;
         ofs<<ms.boundary.GetU()[0]<<" "
-           <<ms.boundary.GetV()[1]<<" "
+           <<v.Norm()<<" "
            <<ms.boundary.GetW()[2]<<" "
-           <<"90 90 90 1 1"<<endl;
+           <<"90 90 "
+           <<C
+           <<" 1 1"<<endl;
     }
     return true;
 }
@@ -165,7 +181,11 @@ void Mol2File::writeAMolecule(Molecule &mol, std::ofstream &ofs) {
         else
             typeSection = a.type;
 
-        ofs<<a.serial<<" "<<a.name<<" "<<a.xyz[0]<<" "<<a.xyz[1]<<" "<<a.xyz[2]<<" "
+        ofs<<a.serial<<" ";
+        ofs<<a.element+a.serial<<" ";
+        // Maybe you don't want to rename the atoms. In that case, use the statement below.
+        //ofs<<a.name<<" "
+        ofs<<a.xyz[0]<<" "<<a.xyz[1]<<" "<<a.xyz[2]<<" "
         <<typeSection<<" "<<"0.0"<<" "<<"****"<<" "<<a.charge<<endl;
     }
     ofs<<"@<TRIPOS>BOND"<<endl;

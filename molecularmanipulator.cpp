@@ -170,3 +170,59 @@ void MolSysSplitByConnectivity(MolecularSystem &ms) {
     }
     MolSysReorganize(ms,scheme);
 }
+
+void MolSysExtend(MolecularSystem &dest, MolecularSystem &src){
+    int nAtomsSysInDest = dest.AtomsCount();
+    int nInterBondsInDest = dest.interMolecularBonds.size();
+
+    // Just copy the shared_ptrs, not really the Atoms, bonds. etc.
+    dest.molecules.insert(dest.molecules.end(),src.molecules.begin(),src.molecules.end());
+    // Intermolecular bonds of src mol should be treated differently
+    MolecularSystemAccessor msaOld(src);
+    dest.interMolecularBonds.insert(dest.interMolecularBonds.end(),
+                                    src.interMolecularBonds.begin(),
+                                    src.interMolecularBonds.end());
+    dest.RenumberAtomSerials();
+    MolecularSystemAccessor msaNew(dest);
+    for(int iBond=nInterBondsInDest;iBond<dest.interMolecularBonds.size();iBond++){
+        auto pNewBond = dest.interMolecularBonds[iBond];
+        string oldGlobalSerials[2];
+        string newGlobalSerials[2];
+        for(int i=0;i<2;i++){
+            int oldGlobalIndex = msaOld.GlobalIndexOfAtom(oldGlobalSerials[i]);
+            int newGlobalIndex = oldGlobalIndex + nAtomsSysInDest;
+            newGlobalSerials[i] = msaNew.AtomByGlobalIndex(newGlobalIndex).globalSerial;
+        }
+        pNewBond->atom1 = newGlobalSerials[0];
+        pNewBond->atom2 = newGlobalSerials[1];
+    }
+}
+
+void MolSysDuplicatePeriodically(MolecularSystem &ms, int ix, int iy, int iz, bool set_bound){
+    if(! ms.Periodic())
+        ERROR("System not periodic.");
+    if(ix<1 or iy<1 or iz<1)
+        ERROR("Image count must be >=1 ");
+    MolecularSystem original = ms.DeepCopy();
+    for(int i=0;i<ix;i++){
+        for(int j=0;j<iy;j++){
+            for(int k=0;k<iz;k++){
+                if(i==0 and j==0 and k==0)
+                    continue;
+                MolecularSystem copy = original.DeepCopy();
+                XYZ offset = original.boundary.GetU()*i +
+                        original.boundary.GetV()*j +
+                        original.boundary.GetW()*k;
+                copy.Translate(offset);
+                MolSysExtend(ms,copy);
+            }
+        }
+    }
+    if(set_bound){
+        auto u = ms.boundary.GetU()*ix;
+        auto v = ms.boundary.GetV()*iy;
+        auto w = ms.boundary.GetW()*iz;
+        ms.boundary.SetUVW(u,v,w);
+    }
+    ms.RenumberAtomSerials();
+}

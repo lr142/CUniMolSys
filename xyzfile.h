@@ -2,7 +2,9 @@
 #define CUNIMOLSYS_XYZFILE_H
 #include "universalmolecularsystem.h"
 class XYZFile:public MolecularFile{
+
 public:
+    XYZFile() = default;
     bool Read(MolecularSystem &ms, string filename) override;
     bool Write(MolecularSystem &ms, string filename) override;
 };
