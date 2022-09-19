@@ -213,7 +213,7 @@ void MolSysDuplicatePeriodically(MolecularSystem &ms, int ix, int iy, int iz, bo
     int nTotal = ix*iy*iz;
     int iCount = 0;
     bool requiresProgressBar = false;
-    if(nTotal*ms.AtomsCount() > 500000)
+    if(nTotal*ms.AtomsCount() > MY_LARGE_SYSTEM)
         requiresProgressBar = true;  // Requires Progress Bar if over 0.5 million atoms;
 
 

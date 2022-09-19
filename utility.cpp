@@ -7,6 +7,7 @@
 #include <sstream>
 #include <string>
 #include <iomanip>
+#include <regex>
 using namespace std;
 
 vector<string> StringSplit(string str,char delimitator){
@@ -41,15 +42,6 @@ string StringStrip(string str){
             break;
     return str.substr(beg,end-beg+1);
 }
-bool StringStartsWith(string str,string pattern){
-    if(pattern.size() > str.size())
-        return false;
-    for(int i=0;i<pattern.size();++i){
-        if(str[i]!=pattern[i])
-            return false;
-    }
-    return true;
-}
 pair<string,string> StringTok(string str, string token){
     str = StringStrip(str);
     token = StringStrip(token);
@@ -78,6 +70,24 @@ string StringToCapitalized(string str){
 string StringRemoveComment(string str){
     auto pos = str.find("#");
     return StringStrip(str.substr(0,pos));
+}
+bool StringRegexMatch(string str,string pattern,bool caseSensitive){
+    regex r;
+    if(caseSensitive)
+        r = regex(pattern);
+    else
+        r = regex(pattern,regex::icase);
+    smatch sresults;
+    if(regex_search(str,sresults,r)){
+        return true;
+    }
+    return false;
+}
+bool StringStartsWith(string str,string pattern,bool caseSensitive){
+    return StringRegexMatch(str,"^"+pattern,caseSensitive);
+}
+bool StringEndsWith(string str,string pattern,bool caseSensitive){
+    return StringRegexMatch(str,pattern+"$",caseSensitive);
 }
 void ProgressBar(double percent,int length){
     double filled = round(length * percent);

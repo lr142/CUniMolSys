@@ -7,11 +7,11 @@ using namespace std;
 
 TEST(XYZ,template){
     float v[] = {1.1,2.,3.5};
-    auto x = XYZ_template<float>(v);
+    auto x = XYZ_T_<float>(v);
     cout<<x<<" "<<sizeof(x)<<endl;
 
     double w[] = {1.1,2.,3.5};
-    auto y = XYZ_template<double>(w);
+    auto y = XYZ_T_<double>(w);
     cout<<y<<" "<<sizeof(y)<<endl;
 }
 

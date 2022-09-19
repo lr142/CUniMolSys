@@ -1,32 +1,20 @@
 #include "opener.h"
+#include "mol2file.h"
+#include "xyzfile.h"
+#include "lammpsdatafile.h"
 #include <regex>
 using namespace std;
 
-bool StringEndsWithCaseInsensitive(string str,string pattern){
-    pattern = pattern+"$";
-    regex r(pattern,regex::icase);
-    smatch sresults;
-    if(regex_search(str,sresults,r)){
-//        cout<<sresults.size()<<endl;
-//        cout<<sresults.str()<<endl;
-        return true;
-    }
-    return false;
-}
-bool StringContainsCaseInsensitive(string str,string pattern){
-    regex r(pattern,regex::icase);
-    smatch sresults;
-    if(regex_search(str,sresults,r)){
-        return true;
-    }
-    return false;
-}
+
+
 shared_ptr<MolecularFile> FileTypePicker(string filename){
     shared_ptr<MolecularFile> molfile = nullptr;
-    if(StringEndsWithCaseInsensitive(filename,"MOL2")){
+    if(StringEndsWith(filename,"MOL2",false)){
         molfile = make_shared<Mol2File>();
-    }else if(StringEndsWithCaseInsensitive(filename,"xyz")){
+    }else if(StringEndsWith(filename,"xyz", false)){
         molfile = make_shared<XYZFile>();
+    }else if(StringEndsWith(filename,"data",false)){
+        molfile = make_shared<LAMMPSDataFile>();
     }else{
         molfile = nullptr;
     }

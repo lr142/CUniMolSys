@@ -9,7 +9,8 @@
 
 class Trajectory{
 public:
-    Trajectory(MolecularSystem &ms):ms_(ms){}
+    Trajectory(MolecularSystem &ms);
+    ~Trajectory();
 protected:
     MolecularSystem &ms_;
     /* number of atoms in the system. Assume all frames have the same number of atoms. This means GCMC is not directly
@@ -22,11 +23,17 @@ protected:
     /* The following data structures stores the core info. Each of which is a vector of length nFrames. e.g. x_[i] records
      * the coordinates of all atoms in frame i. x_[i] itself is an array of struct XYZ with length = nAtoms.
      * Note: velocities/forces/image_flags may not be available in all trajectories. In those cases, they are simply
-     * set to empty vectors */
+     * set to empty vectors.
+     * Current using double to store these data. If memory is an issue, recompile with XYZ_T_<float>;
+     * */
     vector<XYZ*> x_; // coordinates
     vector<XYZ*> v_; // velocities
     vector<XYZ*> f_; // forces;
-    vector<XYZ*> image_flags_; // periodic image flags (ix,iy,iz). They should be ints, but I use double to store them just for convenience.
+    vector<XYZ_T_<int>*> image_flags_; // periodic image flags (ix,iy,iz in LAMMPS).
+protected:
+    void createMemoryForFrame(int iFrame);
+    void destroyMemoryForFrame(int iFrame);
+    void destroyAll();
 };
 #endif //CUNIMOLSYS_TRAJECTORY_H
 
