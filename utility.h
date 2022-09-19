@@ -4,6 +4,7 @@
 #include <iostream>
 #include <vector>
 #include <map>
+#include <cmath>
 using std::vector;
 using std::string;
 using std::pair;
@@ -88,31 +89,151 @@ protected:
 };
 
 // Mathematical Functions
-class XYZ{
+template <class T=double>
+class XYZ_template{
 public:
-    XYZ();
-    XYZ(double x,double y,double z);
-    XYZ(const double xyzs[3]);
-    XYZ(const XYZ& otherXYZ) = default;
-    double& operator[](int index);
-    inline double* ptr() {return xyz;}
-    XYZ& operator=(const XYZ& otherXYZ);
-    XYZ& operator=(const double xyzs[3]);
+    XYZ_template();
+    XYZ_template(T x,T y,T z);
+    XYZ_template(const T xyzs[3]);
+    XYZ_template(const XYZ_template<T>& otherXYZ) = default;
+    T& operator[](int index);
+    inline T* ptr() {return xyz;}
+    XYZ_template<T>& operator=(const XYZ_template<T>& otherXYZ);
+    XYZ_template<T>& operator=(const T xyzs[3]);
     double NormSquared();
     double Norm();
-    XYZ& Normalized();
-    XYZ& operator+=(XYZ v);
-    XYZ& operator-=(XYZ v);
-    XYZ& operator*=(double a);
-    friend XYZ operator+(const XYZ& v1, const XYZ& v2);
-    friend XYZ operator-(const XYZ& v1, const XYZ& v2);
-    friend XYZ operator*(const XYZ& v, double a);
-    friend double XYZDot(const XYZ &v1, const XYZ &v2);
-    friend XYZ XYZCross(const XYZ &v1, const XYZ &v2);
-    friend bool operator==(const XYZ& v1, const XYZ& v2);
-    friend std::ostream &operator<<(std::ostream &os, const XYZ &xyz);
+    XYZ_template<T>& Normalized();
+    XYZ_template<T>& operator+=(XYZ_template<T> v);
+    XYZ_template<T>& operator-=(XYZ_template<T> v);
+    XYZ_template<T>& operator*=(double a);
+    template<class S>
+    friend XYZ_template<S> operator+(const XYZ_template<S>& v1, const XYZ_template<S>& v2);
+    template<class S>
+    friend XYZ_template<S> operator-(const XYZ_template<S>& v1, const XYZ_template<S>& v2);
+    template<class S>
+    friend XYZ_template<S> operator*(const XYZ_template<S>& v, double a);
+    template<class S>
+    friend S XYZDot(const XYZ_template<S> &v1, const XYZ_template<S> &v2);
+    template<class S>
+    friend XYZ_template<S> XYZCross(const XYZ_template<S> &v1, const XYZ_template<S> &v2);
+    template<class S>
+    friend bool operator==(const XYZ_template<S>& v1, const XYZ_template<S>& v2);
+    template<class S>
+    friend std::ostream &operator<<(std::ostream &os, const XYZ_template<S> &xyz);
 private:
-    double xyz[3];
+    T xyz[3];
 };
-void XYZRotate(XYZ* coords,int numAtoms,double degree_clockwise,XYZ axis);
+
+// Seems like template class must be implemented in .h files. This is quite ugly but seems no other way...
+template<class T> XYZ_template<T>::XYZ_template():xyz{0.0,0.0,0.0}{}
+template<class T> XYZ_template<T>::XYZ_template(T x,T y,T z):xyz{x,y,z}{}
+template<class T> XYZ_template<T>::XYZ_template(const T xyzs[3]):xyz{xyzs[0],xyzs[1],xyzs[2]}{}
+template<class T> T& XYZ_template<T>::operator[](int index) {
+    if(index<0 || index>2)
+        throw std::out_of_range("XYZ[]");
+    return xyz[index];
+}
+template<class T> XYZ_template<T>& XYZ_template<T>::operator=(const XYZ_template<T>& otherXYZ){
+    for(int i=0;i<3;i++)
+        xyz[i] = otherXYZ.xyz[i];
+    return *this;
+}
+template<class T> XYZ_template<T>& XYZ_template<T>::operator=(const T xyzs[3]){
+    for(int i=0;i<3;i++)
+        xyz[i] = xyzs[i];
+    return *this;
+}
+template<class T> double XYZ_template<T>::NormSquared(){
+    return xyz[0]*xyz[0] + xyz[1]*xyz[1] + xyz[2]*xyz[2];
+}
+template<class T> double XYZ_template<T>::Norm(){
+    return sqrt(NormSquared());
+}
+template<class T> XYZ_template<T>& XYZ_template<T>::Normalized(){
+    double norm = Norm();
+    if(norm < 1e-10)
+        throw std::runtime_error("Norm too small: "+ std::to_string(norm));
+    (*this)*=1.0/norm;
+    return *this;
+}
+template<class T> XYZ_template<T>& XYZ_template<T>::operator+=(XYZ_template<T> v){
+    xyz[0] += v[0];
+    xyz[1] += v[1];
+    xyz[2] += v[2];
+    return *this;
+}
+template<class T> XYZ_template<T>& XYZ_template<T>::operator-=(XYZ_template<T> v){
+    xyz[0] -= v[0];
+    xyz[1] -= v[1];
+    xyz[2] -= v[2];
+    return *this;
+}
+template<class T> XYZ_template<T>& XYZ_template<T>::operator*=(double a){
+    xyz[0] *= a;
+    xyz[1] *= a;
+    xyz[2] *= a;
+    return *this;
+}
+template<class T> XYZ_template<T> operator+(const XYZ_template<T>& v1, const XYZ_template<T>& v2){
+    return XYZ_template<T>(v1.xyz[0]+v2.xyz[0], v1.xyz[1]+v2.xyz[1], v1.xyz[2]+v2.xyz[2]);
+}
+template<class T> XYZ_template<T> operator-(const XYZ_template<T>& v1, const XYZ_template<T>& v2){
+    return XYZ_template<T>(v1.xyz[0]-v2.xyz[0], v1.xyz[1]-v2.xyz[1], v1.xyz[2]-v2.xyz[2]);
+}
+template<class T> XYZ_template<T> operator*(const XYZ_template<T>& v, double a){
+    return XYZ_template<T>(v.xyz[0]*a, v.xyz[1]*a, v.xyz[2]*a);
+}
+template<class T> T XYZDot(const XYZ_template<T> &v1, const XYZ_template<T> &v2){
+    return v1.xyz[0]*v2.xyz[0] + v1.xyz[1]*v2.xyz[1] + v1.xyz[2]*v2.xyz[2];
+}
+template<class T> XYZ_template<T> XYZCross(const XYZ_template<T> &v1, const XYZ_template<T> &v2){
+    double x =  v1.xyz[1]*v2.xyz[2] - v1.xyz[2]*v2.xyz[1];
+    double y = -v1.xyz[0]*v2.xyz[2] + v1.xyz[2]*v2.xyz[0];
+    double z =  v1.xyz[0]*v2.xyz[1] - v1.xyz[1]*v2.xyz[0];
+    return XYZ_template<T>(x,y,z);
+}
+template<class T> bool operator==(const XYZ_template<T>& v1, const XYZ_template<T>& v2){
+    static double tolerance = 1e-5;
+    return (v1-v2).Norm() < tolerance;
+}
+template<class T> std::ostream &operator<<(std::ostream &os, const XYZ_template<T> &xyz) {
+    os <<"["<<xyz.xyz[0]<<", "<<xyz.xyz[1]<<", "<<xyz.xyz[2]<<"]";
+    return os;
+}
+template<class T> void XYZRotate(XYZ_template<T>* coords,int numAtoms,double degree_clockwise,XYZ_template<T> axis){
+    axis.Normalized();
+    double rx = axis[0];
+    double ry = axis[1];
+    double rz = axis[2];
+    // The rotational matrix was copied from a previous code. I forgot its reference...
+    double phi = degree_clockwise * MY_PI / 180.0;
+    double c = std::cos(phi);
+    double s = std::sin(phi);
+    double RMatrix[3][3];
+    RMatrix[0][0] = c + (1-c)*rx*rx;
+    RMatrix[0][1] = (1-c)*rx*ry - rz*s;
+    RMatrix[0][2] = (1-c)*rx*rz + ry*s;
+    RMatrix[1][0] = (1-c)*rx*ry + rz*s;
+    RMatrix[1][1] = c + (1-c)*ry*ry;
+    RMatrix[1][2] = (1-c)*ry*rz - rx*s;
+    RMatrix[2][0] = (1-c)*rx*rz - ry*s;
+    RMatrix[2][1] = (1-c)*ry*rz + rx*s;
+    RMatrix[2][2] = c+(1-c)*rz*rz;
+    XYZ_template<T>* newCoords = new XYZ_template<T>[numAtoms];
+    // newCoords = oldCoords * RMatrix, the * here is the matrix multiplication.
+    for(int i=0;i<numAtoms;++i){
+        for(int j=0;j<3;++j){
+            newCoords[i][j] = 0.0;
+            for(int k=0;k<3;++k){
+                newCoords[i][j] += coords[i][k]*RMatrix[k][j];
+            }
+        }
+    }
+    for(int i=0;i<numAtoms;++i){
+        coords[i] = newCoords[i];
+    }
+    delete [] newCoords;
+}
+
+using XYZ =  XYZ_template<double>;
 #endif //CUNIMOLSYS_UTILITY_H

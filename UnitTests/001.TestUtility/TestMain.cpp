@@ -5,6 +5,16 @@
 #include <fstream>
 using namespace std;
 
+TEST(XYZ,template){
+    float v[] = {1.1,2.,3.5};
+    auto x = XYZ_template<float>(v);
+    cout<<x<<" "<<sizeof(x)<<endl;
+
+    double w[] = {1.1,2.,3.5};
+    auto y = XYZ_template<double>(w);
+    cout<<y<<" "<<sizeof(y)<<endl;
+}
+
 TEST(StringFunctions,split){
     vector<string> result = {"1","2","3"};
     EXPECT_EQ(StringSplit("1 2  3 "),result);

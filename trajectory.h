@@ -8,6 +8,8 @@
  * This class (in some sense) implements the Decorator design pattern */
 
 class Trajectory{
+public:
+    Trajectory(MolecularSystem &ms):ms_(ms){}
 protected:
     MolecularSystem &ms_;
     /* number of atoms in the system. Assume all frames have the same number of atoms. This means GCMC is not directly
