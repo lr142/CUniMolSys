@@ -8,7 +8,11 @@ using std::vector;
 using std::string;
 using std::pair;
 
+
 static const double MY_PI = 3.14159265358979323846264338327950;
+// For floating point number comparisons
+static const double MY_LARGE = 1e9;
+static const double MY_SMALL = 1e-5;
 
 // Resource Files Path
 static string DATAFILESPATH=_DATAFILESPATH_;
@@ -29,6 +33,9 @@ string StringToUpper(string str);
 string StringToLower(string str);
 string StringToCapitalized(string str);
 string StringRemoveComment(string str);
+
+void ProgressBar(double percent,int length = 50);
+
 
 // This class controls how to deal with stdout and stderr messages.
 // It has two child classes: ErrorHandler, OutputHandler

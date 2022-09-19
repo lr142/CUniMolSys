@@ -86,7 +86,7 @@ void TestSplitting::ConnectEveryAtomInEachMolecule(MolecularSystem &ms){
 }
 
 /* Test Randomly splitting a molecule, combine them, and find bonds */
-TEST_F(TestSplitting, DISABLED_split_and_find_bonds){
+TEST_F(TestSplitting, split_and_find_bonds){
 
     uniform_real_distribution<double> urd(-5,5);
 
@@ -132,7 +132,7 @@ TEST_F(TestSplitting, DISABLED_split_and_find_bonds){
 }
 
 /* Test randomly split a molecule, delete all inter-molecular bonds, split the molsys into multiple molecules */
-TEST_F(TestSplitting, DISABLED_divide_by_connectivity){
+TEST_F(TestSplitting, divide_by_connectivity){
     uniform_real_distribution<double> urd(-5,5);
     for(int iNo=1;iNo<ms.size();iNo++) {
 
@@ -183,7 +183,7 @@ TEST_F(TestSplitting, DISABLED_divide_by_connectivity){
 
 
 /* Extend a system */
-TEST(Extend,DISABLED_t1) {
+TEST(Extend,t1) {
     MolecularSystem ms;
     string pathname = DATAFILESPATH + "/../UnitTests/005.TestManipulator/";
     QuickOpen(ms, pathname + "PolyPS_broken.mol2");

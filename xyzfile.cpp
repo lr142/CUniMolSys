@@ -27,8 +27,8 @@ bool XYZFile::Read(MolecularSystem &ms, std::string filename) {
         shared_ptr<Molecule> currentMol = make_shared<Molecule>();
         getline(ifs,line);
         currentMol->name = StringStrip(line);
-        if(ms.name=="")
-            ms.name = currentMol->name;
+        if(ms.GetName()=="")
+            ms.SetName(currentMol->name);
         for(int i=0;i<atomCount;i++) {
             getline(ifs, line);
             auto parts = StringSplit(line);
@@ -53,7 +53,7 @@ bool XYZFile::Write(MolecularSystem &ms, std::string filename) {
         ERROR("Can't open xyz file["+filename+"] to write!");
     for(int i=0;i<ms.MoleculesCount();i++){
         ofs<<ms[i].AtomsCount()<<endl;
-        ofs<<(ms[i].name==""?ms.name:ms[i].name)<<endl;
+        ofs<<(ms[i].name==""?ms.GetName():ms[i].name)<<endl;
         for(int j=0;j<ms[i].AtomsCount();j++){
             ofs<<ms[i][j].ShowAsXYZ()<<endl;
         }

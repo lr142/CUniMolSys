@@ -56,9 +56,7 @@ bool GridForNeighList::AddAtom(AtomInGrid &atom) {
     }
 }
 bool GridForNeighList::AddAtom(int index, XYZ xyz, bool ghost) {
-    AtomInGrid atom;
-    atom.index = index;
-    atom.xyz = xyz;
+    AtomInGrid atom(index,xyz);
     //atom.ghost = ghost;
     //atom.element = element;
     return AddAtom(atom);
@@ -151,10 +149,6 @@ Molecule GridForNeighList::_debug_ShowGridContentAsMolecule(vector<AtomInGrid> &
     return mol;
 }
 
-
-double NeighborList::LARGE = 1e9;
-double NeighborList::SMALL = 1e-5;
-
 NeighborList::NeighborList(MolecularSystem &ms, double gridSize): msa(ms), gridsize_(gridSize), cached_nlist_(nullptr){
     if(gridsize_<0.1)
         ERROR("In NeighborList(), gridsize too small. We suggest 3~5 Angstroms.");
@@ -171,8 +165,8 @@ void NeighborList::createGridsForNonPeriodic() {
     // enclose the system with a half-gridsize_ skin,
     // "shift" the system to the new origin_, and create the grids.
     int nAtoms = msa.AtomsCount();
-    XYZ minXYZ = XYZ(LARGE,LARGE,LARGE);
-    XYZ maxXYZ = XYZ(-LARGE,-LARGE,-LARGE);
+    XYZ minXYZ = XYZ(MY_LARGE,MY_LARGE,MY_LARGE);
+    XYZ maxXYZ = XYZ(-MY_LARGE,-MY_LARGE,-MY_LARGE);
     for(int i=0;i<nAtoms;i++){
         Atom &atom = msa.AtomByGlobalIndex(i);
         for(int j=0;j<3;j++){
@@ -189,9 +183,7 @@ void NeighborList::createGridsForNonPeriodic() {
     // Add atoms to the grid
     for(int i=0;i<nAtoms;i++){
         Atom &atom = msa.AtomByGlobalIndex(i);
-        AtomInGrid a;
-        a.index = i;
-        a.xyz = atom.xyz-minXYZ;
+        AtomInGrid a(i,atom.xyz-minXYZ);
         //a.element = pAtom->element;
         //a.ghost = false; // no ghost atoms for non-periodic systems
         pGrid_->AddAtom(a);
@@ -203,7 +195,7 @@ void NeighborList::createGridsForPeriodic() {
         ERROR("Only supported for orthogonal system.");
     gridOrigin_ = bound.GetOrigin();
     systemLengths_ = XYZ(bound.GetU()[0],bound.GetV()[1],bound.GetW()[2]);
-    if(systemLengths_[0] < SMALL || systemLengths_[1] < SMALL || systemLengths_[2] < SMALL)
+    if(systemLengths_[0] < MY_SMALL or systemLengths_[1] < MY_SMALL or systemLengths_[2] < MY_SMALL)
         ERROR("System dimension negative or close to 0.");
     // The size of the grids are wider with skin size = gridsize;
     gridLengths_ = systemLengths_ + XYZ(gridsize_, gridsize_, gridsize_);
@@ -212,15 +204,14 @@ void NeighborList::createGridsForPeriodic() {
     int nAtoms = msa.AtomsCount();
     for(int i=0;i<nAtoms;i++){
         Atom &atom = msa.AtomByGlobalIndex(i);
-        AtomInGrid a;
         // atoms must be wrapped in the cell
-        a.index = i;
-        a.xyz = WrapInCell(atom.xyz, GridOrigin(), systemLengths_);
+        XYZ pos_in_grid = WrapInCell(atom.xyz, GridOrigin(), systemLengths_);
+        AtomInGrid a(i,pos_in_grid);
         //a.element = pAtom->element;
         //a.ghost = false; // first, add the real atom
         pGrid_->AddAtom(a);
         vector<XYZ> equilPos;
-        generateEquivalentPositionsForPBC(a.xyz,equilPos);
+        generateEquivalentPositionsForPBC(pos_in_grid,equilPos);
         for(auto &pos:equilPos){
             pGrid_->AddAtom(i,pos,true);
         }
@@ -231,7 +222,7 @@ XYZ NeighborList::WrapInCell(XYZ xyz, XYZ origin, XYZ LxLyLz) {
     for(int i=0;i<3;i++) {
         while (xyz[i] < 0)
             xyz[i] += LxLyLz[i];
-        while (xyz[i] > LxLyLz[i] + SMALL) //+SMALL to void numerical issues: atoms just on the boundary
+        while (xyz[i] > LxLyLz[i] + MY_SMALL) //+SMALL to void numerical issues: atoms just on the boundary
             xyz[i] -= LxLyLz[i];
     }
     return xyz;
@@ -476,8 +467,8 @@ void BondDetectorByRules::Detect(MolecularSystem &ms, bool flushCurrentBonds) {
         for(auto &item:*candidateAtoms){
             int iToAtom = item.index;
             Atom &toAtom = msa.AtomByGlobalIndex(iToAtom);
-            string element_name = fromAtom.element+"_"+toAtom.element;
-            auto pIter = rules_.find(element_name);
+            string elements_names = fromAtom.element + "_" + toAtom.element;
+            auto pIter = rules_.find(elements_names);
 
             if(pIter == rules_.end())
                 continue;

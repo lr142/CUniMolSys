@@ -94,8 +94,8 @@ public:
 
 class Boundary{
 public:
-    Boundary(bool orthogonal = true);
-    inline bool Orthogonal(){return orthogonal_;}
+    Boundary();
+    bool Orthogonal();
     void SetUVW(XYZ u,XYZ v,XYZ w);
     void SetUVW(double uvw[3][3]);
     void SetOrigin(XYZ origin);
@@ -110,7 +110,6 @@ public:
     bool Periodic();
     string Show();
 private:
-    bool orthogonal_;
     XYZ uvw[3];
     XYZ origin_;
 };
@@ -119,10 +118,10 @@ class MolecularSystem{
 public:
     MolecularSystem(string name="");
     ~MolecularSystem() = default;
+    inline void SetName(string name){name=name;}
+    inline string GetName(){return name;}
     void Read(MolecularFile *pFile,string filename);
     void Write(MolecularFile *pFile,string filename);
-    // Deepcopy the molecularsystem, including the trajectory
-    MolecularSystem DeepCopyWithTrajectory();
     // Deepcopy the molecularSystem, except the trajactory
     MolecularSystem DeepCopy();
     int AtomsCount();
@@ -147,13 +146,22 @@ public:
     void Rotate(double clockwise_degree, XYZ axis);
     void FractionalToCartesian();
 
-public:
-    string name = "";
+    /* If this flag is true, the MS has been modified since last time,
+     * Adding/removing/reordering atoms/molecules/bonds in the MS will cause this flag to become true (By calling functions
+     * such as Clear(), ClearBonds(), AddMolecule(), AddAtom() ).
+     * If this flag is true, the user should call RenumberAtomSerials() to reset this flag to false before accessing its
+     * contents.  */
+    inline bool Dirty(){ return dirty_; }
+
+    /* Below are low level data structures. There are cases (e.g. MolecularFile reader) the caller must work directly
+     * with these data structures. However, If the caller modified [molecules] or [interMolecularBonds], it's the
+     * caller's responsibility to call RenumberAtomSerials() since in this case the Dirty() flag won't change by itself. */
     Boundary boundary;
     vector<shared_ptr<Molecule>> molecules;
     vector<shared_ptr<Bond>> interMolecularBonds; // 记录分子间的Bond（这些Bond不属于任何一个Molecule）
-    // # 体系的演化轨迹（如有）
-    shared_ptr<Trajectory> trajectory = nullptr;
+protected:
+    string name;
+    bool dirty_; // See comment above;
 };
 
 /* This class provides quick access to elements in a MolecularSystem.

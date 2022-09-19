@@ -28,31 +28,6 @@ Bond& Molecule::GetBond(int index){
         throw out_of_range("Molecules::getBond");
     return *bonds[(index+nBonds)%nBonds];
 }
-//vector<vector<int>>& Molecule::GetBondedMap(bool update){
-//    static vector<vector<int>> bondedTo;
-//    if(!update)
-//        return bondedTo;
-//    int nAtoms = AtomsCount();
-//    bondedTo.resize(nAtoms);
-//    map<string,int> serialToIndexMap;
-//    for(int i=0;i<nAtoms;i++) {
-//        bondedTo[i].clear();
-//        serialToIndexMap[atoms[i]->serial] = i;
-//    }
-//    for(int i=0;i<bonds.size();i++){
-//        string from = bonds[i]->atom1;
-//        string to = bonds[i]->atom2;
-//        auto not_found_pos = serialToIndexMap.end();
-//        if(serialToIndexMap.find(from)==not_found_pos || serialToIndexMap.find(to)==not_found_pos){
-//            WARNING("Dangling bond detected: ["+from+"-"+to+"] in molecule serial ="+ serial);
-//        }
-//        int fromIndex = serialToIndexMap[from];
-//        int toIndex   = serialToIndexMap[to];
-//        bondedTo[fromIndex].push_back(toIndex);
-//        bondedTo[toIndex].push_back(fromIndex);
-//    }
-//    return bondedTo;
-//}
 string Molecule::Summary() {
     ostringstream oss;
     oss<<"Molecule Serial: "<<serial<<", Name: "<<name<<", Type: "<<type
@@ -79,7 +54,20 @@ Molecule Molecule::DeepCopy(){
     return copy;
 }
 
-Boundary::Boundary(bool ortho):orthogonal_(ortho){}
+Boundary::Boundary(){
+    // Initialize to non-PBC
+    uvw[0]= {0,0,0}; uvw[1]={0,0,0}; uvw[2]={0,0,0};
+    origin_ = {0,0,0};
+}
+
+bool Boundary::Orthogonal(){
+    if(XYZDot(uvw[0],uvw[1]) < MY_SMALL and
+       XYZDot(uvw[0],uvw[2]) < MY_SMALL and
+       XYZDot(uvw[1],uvw[2]) < MY_SMALL)
+        return true;
+    else
+        return false;
+}
 
 void Boundary::SetUVW(XYZ u,XYZ v,XYZ w){
     uvw[0]=u; uvw[1]=v; uvw[2]=w;
@@ -137,20 +125,12 @@ string Boundary::Show(){
     <<lohi[2][0]<<", "<<lohi[2][1]<<"] }";
     return oss.str();
 }
-
-MolecularSystem::MolecularSystem(string name): name(name){}
+MolecularSystem::MolecularSystem(string name): name(name),dirty_(false){}
 void MolecularSystem::Read(MolecularFile *pFile,string filename){
     pFile -> Read(*this,filename); //Strategy Pattern
 }
 void MolecularSystem::Write(MolecularFile *pFile,string filename){
     pFile -> Write(*this,filename); //Strategy Pattern
-}
-MolecularSystem MolecularSystem::DeepCopyWithTrajectory(){
-    MolecularSystem copy = this->DeepCopy();
-    /* not yet implemented
-    copy.trajectory = make_shared<Trajectory>()
-     */
-    return copy;
 }
 MolecularSystem MolecularSystem::DeepCopy(){
     MolecularSystem copy(this->name);
@@ -189,47 +169,6 @@ Molecule& MolecularSystem::operator[](int index){
         throw out_of_range("MolecularSystem::operator[]");
     return *molecules[(index+molCount)%molCount];
 }
-//shared_ptr<Atom> MolecularSystem::GetAtom(int index){
-//    int nAtoms = AtomsCount();
-//    if(index<-nAtoms || index>=nAtoms)
-//        return nullptr;
-//    index = (index+nAtoms)%nAtoms;
-//    for(int i=0;i<MoleculesCount();i++){
-//        if(index < molecules[i]->AtomsCount())
-//            return molecules[i]->atoms[index];
-//        else
-//            index -= molecules[i]->AtomsCount();
-//    }
-//    return nullptr;
-//}
-//int MolecularSystem::SearchMoleculeBySerial(string molSerial,bool update){
-//    static map<string,int> serialToIndexMap;
-//    if(serialToIndexMap.empty() || update){
-//        serialToIndexMap.clear();
-//        for(int i=0;i<MoleculesCount();i++){
-//            serialToIndexMap[(*this)[i].serial] = i;
-//        }
-//    }
-//    if(serialToIndexMap.find(molSerial) != serialToIndexMap.end())
-//        return serialToIndexMap[molSerial];
-//    else
-//        return -1;
-//}
-//std::pair<int,int> MolecularSystem::SearchAtomByGlobalSerial(string atomGlobalSerial,bool update){
-//    static map<string,pair<int,int>> serialToIndexMap;
-//    if(serialToIndexMap.empty() || update){
-//        serialToIndexMap.clear();
-//        for(int i=0;i<MoleculesCount();i++){
-//            for(int j=0;j<(*this)[i].AtomsCount();j++){
-//                serialToIndexMap[(*this)[i][j].globalSerial] = make_pair(i,j);
-//            }
-//        }
-//    }
-//    if(serialToIndexMap.find(atomGlobalSerial) != serialToIndexMap.end())
-//        return serialToIndexMap[atomGlobalSerial];
-//    else
-//        return make_pair(-1,-1);
-//}
 void MolecularSystem::RenumberAtomSerials(int startingGlobalSerial) {
     // Build a MolecularSystemAccessor to save the old mappings
     MolecularSystemAccessor msa(*this);
@@ -273,6 +212,7 @@ void MolecularSystem::RenumberAtomSerials(int startingGlobalSerial) {
         pBond->atom1 = strFrom;
         pBond->atom2 = strTo;
     }
+    this->dirty_ = false;
 }
 void MolecularSystem::DetectBonds(BondDetector *pDetector, bool flushCurrentBonds){
     pDetector->Detect(*this,flushCurrentBonds);
@@ -280,13 +220,14 @@ void MolecularSystem::DetectBonds(BondDetector *pDetector, bool flushCurrentBond
 void MolecularSystem::Clear(){
     molecules.clear();
     interMolecularBonds.clear();
-    trajectory = nullptr;
+    this->dirty_ = true;
 }
 void MolecularSystem::ClearBonds() {
     for(int i=0;i<MoleculesCount();i++){
         molecules[i]->bonds.clear();
     }
     interMolecularBonds.clear();
+    this->dirty_ = true;
 }
 string MolecularSystem::Summary(){
     int bondCount = 0;

@@ -2,10 +2,14 @@
 #define CUNIMOLSYS_BONDDETECTOR_H
 #include "universalmolecularsystem.h"
 
-struct AtomInGrid{
+class AtomInGrid{
+public:
+    AtomInGrid(int index,XYZ xyz):index(index),xyz(xyz){}
     int index; // original index in MolecularSystem
+    friend class GridForNeighList;
+private:
     //bool ghost; // whether a ghost atom
-    XYZ xyz;   // coordinates in the pGrid_, not in the original system
+    XYZ xyz;   // coordinates in the pGrid_, not in the original system. Only GridForNeighList can access.
     //string element;
 };
 
@@ -83,9 +87,6 @@ private:
     XYZ gridLengths_;
     XYZ systemLengths_;
     vector<AtomInGrid> *** cached_nlist_;
-    // For floating point number comparisons
-    static double LARGE;
-    static double SMALL;
 };
 
 struct BondRule{

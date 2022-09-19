@@ -78,6 +78,21 @@ string StringRemoveComment(string str){
     auto pos = str.find("#");
     return StringStrip(str.substr(0,pos));
 }
+void ProgressBar(double percent,int length){
+    double filled = round(length * percent);
+    ostringstream oss;
+    oss<<"[";
+    int i;
+    for(i=0;i<filled;i++)
+        oss<<"#";
+    for(i=filled;i<length;i++){
+        oss<<" ";
+    }
+    oss<<"] "<<fixed<<setprecision(2)<<setw(4)<<percent*100<<"%";
+    if(percent > 1.0-MY_SMALL)
+        oss<<"\n";
+    cout<<"\r"+oss.str()<<ends<<flush;
+}
 
 ErrorAndOutputHandler::ErrorAndOutputHandler():onOffState_(true),pOutput_(&cout){}
 void ErrorAndOutputHandler::SetOutput(std::ostream &ostream) {pOutput_ = &ostream;}

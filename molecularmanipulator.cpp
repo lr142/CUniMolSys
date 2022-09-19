@@ -1,6 +1,11 @@
 #include "molecularmanipulator.h"
+#include "opener.h"
+#include "bonddetector.h"
+#include "utility.h"
 #include <random>
 #include <stack>
+#include <string>
+#include <sstream>
 using namespace std;
 void MolSysReorganize(MolecularSystem &ms, vector<int>& scheme){
     MolecularSystemAccessor oldMolAccessor(ms);
@@ -204,6 +209,14 @@ void MolSysDuplicatePeriodically(MolecularSystem &ms, int ix, int iy, int iz, bo
     if(ix<1 or iy<1 or iz<1)
         ERROR("Image count must be >=1 ");
     MolecularSystem original = ms.DeepCopy();
+
+    int nTotal = ix*iy*iz;
+    int iCount = 0;
+    bool requiresProgressBar = false;
+    if(nTotal*ms.AtomsCount() > 500000)
+        requiresProgressBar = true;  // Requires Progress Bar if over 0.5 million atoms;
+
+
     for(int i=0;i<ix;i++){
         for(int j=0;j<iy;j++){
             for(int k=0;k<iz;k++){
@@ -215,6 +228,9 @@ void MolSysDuplicatePeriodically(MolecularSystem &ms, int ix, int iy, int iz, bo
                         original.boundary.GetW()*k;
                 copy.Translate(offset);
                 MolSysExtend(ms,copy);
+                if(requiresProgressBar)
+                    ProgressBar(1.0*iCount/nTotal);
+                ++iCount;
             }
         }
     }
@@ -225,4 +241,140 @@ void MolSysDuplicatePeriodically(MolecularSystem &ms, int ix, int iy, int iz, bo
         ms.boundary.SetUVW(u,v,w);
     }
     ms.RenumberAtomSerials();
+    if(requiresProgressBar) {
+        ProgressBar(1.0);
+    }
 }
+
+void MolSysSubsystemByMask(MolecularSystem &ms,vector<bool> mask){
+    if(mask.size() != ms.AtomsCount())
+        ERROR("vector mask must have same length as the number of atoms in MolecularSystem");
+    vector<int> scheme(mask.size());
+    for(int i=0;i<scheme.size();i++){
+        scheme[i] = mask[i]? 0 : 1;
+    }
+    MolSysReorganize(ms,scheme);
+    // Keep only the first molecule.
+    ms.molecules.erase(ms.molecules.begin()+1,ms.molecules.end());
+    // Discard all inter-molecular bonds
+    ms.interMolecularBonds.clear();
+    ms.RenumberAtomSerials();
+}
+
+void MolSysSubSystemBySerials(MolecularSystem &ms,set<string> &globalSerials){
+    vector<bool> mask(ms.AtomsCount());
+    int indexCounter = 0;
+    for(int i=0;i<ms.MoleculesCount();i++){
+        for(int j=0;j<ms[i].AtomsCount();j++){
+            if(globalSerials.contains(ms[i][j].globalSerial))
+                mask[indexCounter] = true;
+            else
+                mask[indexCounter] = false;
+            ++indexCounter;
+        }
+    }
+    MolSysSubsystemByMask(ms,mask);
+}
+
+bool _add_this_water_(MolecularSystemAccessor &originalSys, NeighborList &nlist, Boundary &bound, Molecule &mol, int indexOfOxygen, double minDistSquared){
+    XYZ oxygen_pos = mol[indexOfOxygen].xyz;
+    double lohi[3][2];
+    bound.GetLoHi(lohi);
+    // Check if the water is out of the bound
+    for(int i=0;i<3;i++){
+        if(oxygen_pos[i] < lohi[i][0] or oxygen_pos[i]>lohi[i][1])
+            return false;
+    }
+    // Clash Detection
+    auto neighbors = nlist.GetNeighborsFromCachedLists(oxygen_pos);
+    if(neighbors== nullptr)
+        return true;
+
+    for(auto iter=neighbors->begin();iter!=neighbors->end();++iter){
+        Atom &candidateAtom = originalSys.AtomByGlobalIndex(iter->index);
+        /* Must call nlist.DistanceSquared() instead of comparing these two coords directly due to
+         * 1. In PBC, the waters coordinates must be wrapped in the cell to detect clash with system atoms in another image
+         * 2. In Non-PBC, the coordinates from nlist->iter->xyz are shifted away from the original by skin_size/2 */
+        double distSqrt = nlist.DistanceSquared(oxygen_pos,candidateAtom.xyz);
+        if(distSqrt < minDistSquared)
+            return false;
+    }
+    return true;
+}
+
+bool MolSysSolvate(MolecularSystem &ms, Boundary bound, WaterType waterType, double minDistance){
+    if(!bound.Orthogonal())
+        ERROR("Supports only orthogonal region");
+    string path = DATAFILESPATH+"/Structures/";
+    if(waterType==WaterType::SPC)
+        path += "spc_water_5nm_chunk.mol2";
+    else if(waterType==WaterType::TIP4P)
+        path += "tip4p_water_5nm_chunk.mol2";
+    else
+        ERROR("Unknown water type"+ to_string(waterType));
+
+    MolecularSystem waterChunk;
+    QuickOpen(waterChunk,path);
+    waterChunk.ClearBonds();
+    if(waterChunk.AtomsCount()<3)
+        ERROR("No waters read from the water chunk file");
+    // Erase atom type info in the .mol2 file, auto recognize later
+    for(int i=0;i<waterChunk.MoleculesCount();i++){
+        for(int j=0;j<waterChunk[i].AtomsCount();j++){
+            waterChunk[i][j].type = "";
+        }
+    }
+    // Calc the fill size
+    double chunkSize = waterChunk.boundary.GetU()[0]; // The chunk should be a cubic, usally of size 50 Angs.
+    // Align the origin of the waterchunk to the desired origin. The origin of the water chunk is usually [0,0,0], but no
+    // harm to just write this.
+    waterChunk.Translate(bound.GetOrigin()-waterChunk.boundary.GetOrigin());
+
+    XYZ fillSize = { bound.GetU()[0], bound.GetV()[1], bound.GetW()[2] };
+    int periodicImages[3];
+    for(int i=0;i<3;i++){
+        periodicImages[i] = (int)ceil(fillSize[i]/chunkSize);
+        if(periodicImages[i]<=0)
+            ERROR("Fill region size can't be 0 or negative");
+        else if(fillSize[i]>=1000) // Warning if region > 1000 Angstrom
+            WARNING("Fill region too large : "+ to_string(fillSize[i])+" Angstroms, are you sure?");
+        else{}
+    }
+    // Prepare the chunk for filling. Duplicate Images:
+    ostringstream msg;
+    msg<<"Creating water chunk of size = "<<bound.GetU()[0]/10.0<<"*"<<bound.GetV()[1]/10.0<<"*"<<bound.GetW()[2]/10.0<<" nm...";
+    output(msg.str());
+    MolSysDuplicatePeriodically(waterChunk,periodicImages[0],periodicImages[1],periodicImages[2],true);
+    MolSysSplitByConnectivity(waterChunk); // Each water will occupy a molecule
+
+    // Find the index of O atom in each molecule. All waters are the same so this is done only once.
+    int indexOfOxygen;
+    for(indexOfOxygen=0;indexOfOxygen<waterChunk[0].AtomsCount();indexOfOxygen++){
+        if(StringToUpper(waterChunk[0][indexOfOxygen].element)=="O")
+            break;
+    }
+
+    // Add water mols into the system
+    NeighborList nlist(ms,minDistance*1.5); // gridSize = minDistance should be enough, *1.5 just for safety.
+    nlist.BuildCachedNeighborList(); // Because we will use cached neighbor list, not the precise list
+
+    MolecularSystem tempSys;
+    MolecularSystemAccessor originalSysAccessor(ms);
+    double minDistSquared = pow(minDistance,2);
+    output("Adding Waters to System...");
+    for(int i=0;i<waterChunk.MoleculesCount();i++){
+        if(_add_this_water_(originalSysAccessor,nlist,bound,waterChunk[i],indexOfOxygen,minDistSquared)){
+            tempSys.AddMolecule(waterChunk[i]);
+        }
+    }
+
+    if(tempSys.MoleculesCount()==0) // No water added.
+        return false;
+
+    MolSysReduceToSingleMolecule(tempSys);
+    ms.AddMolecule(tempSys[0]);
+    ms.RenumberAtomSerials();
+    output("Solvating the System Done.");
+    return true;
+}
+

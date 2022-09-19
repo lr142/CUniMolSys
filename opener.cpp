@@ -13,6 +13,14 @@ bool StringEndsWithCaseInsensitive(string str,string pattern){
     }
     return false;
 }
+bool StringContainsCaseInsensitive(string str,string pattern){
+    regex r(pattern,regex::icase);
+    smatch sresults;
+    if(regex_search(str,sresults,r)){
+        return true;
+    }
+    return false;
+}
 shared_ptr<MolecularFile> FileTypePicker(string filename){
     shared_ptr<MolecularFile> molfile = nullptr;
     if(StringEndsWithCaseInsensitive(filename,"MOL2")){
@@ -30,7 +38,7 @@ void QuickOpen(MolecularSystem &ms,string filename){
     if(molfile!= nullptr){
         ms.Read(molfile.get(),filename);
     }else{
-        ERROR("Trying to read :["+filename+"]: File type not supported!");
+        ERROR("Trying to read :["+filename+"]: File type not understood!");
     }
 }
 
@@ -39,6 +47,6 @@ void QuickSave(MolecularSystem &ms,string filename){
     if(molfile!= nullptr){
         ms.Write(molfile.get(),filename);
     }else{
-        ERROR("Trying to write:["+filename+"]: File type not supported!");
+        ERROR("Trying to write:["+filename+"]: File type not understood!");
     }
 }

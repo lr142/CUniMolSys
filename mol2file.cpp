@@ -43,8 +43,8 @@ bool Mol2File::Read(MolecularSystem &ms, string filename) {
         if(state == MOLECULE){
             string molName = StringStrip(line);
             ms[-1].name = molName;
-            if(ms.name == "")
-                ms.name = molName;
+            if(ms.GetName() == "")
+                ms.SetName(molName);
             state = OTHER;
         }else if(state==ATOM){
             Atom a;
@@ -182,9 +182,10 @@ void Mol2File::writeAMolecule(Molecule &mol, std::ofstream &ofs) {
             typeSection = a.type;
 
         ofs<<a.serial<<" ";
-        ofs<<a.element+a.serial<<" ";
+        // If you want the name to be unique:
+        //ofs<<a.element+a.serial<<" ";
         // Maybe you don't want to rename the atoms. In that case, use the statement below.
-        //ofs<<a.name<<" "
+        ofs<<a.name<<" ";
         ofs<<a.xyz[0]<<" "<<a.xyz[1]<<" "<<a.xyz[2]<<" "
         <<typeSection<<" "<<"0.0"<<" "<<"****"<<" "<<a.charge<<endl;
     }

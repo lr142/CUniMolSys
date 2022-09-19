@@ -36,5 +36,27 @@ void MolSysExtend(MolecularSystem &dest, MolecularSystem &src);
  * Works only for periodic systems. Supports non-orthogonal system!
  * the boundary info of the ms will also be modified if set_bound flag is set to true */
 void MolSysDuplicatePeriodically(MolecularSystem &ms, int ix, int iy, int iz, bool set_bound);
+
+/* Make a subsystem by picking all atoms i which mask[i] == true.
+ * Will put all picked-atoms in one molecule */
+void MolSysSubsystemByMask(MolecularSystem &ms,vector<bool> mask);
+/* Make a subsystem by picking serials */
+void MolSysSubSystemBySerials(MolecularSystem &ms,set<string> &globalSerials);
+
+
+/*
+ *  Solvate a system by adding water molecules.
+ *  bound is the region to add water. Supports Orthogonal region only
+ *  watertype now supports  SPC and TIP4P. The coordinates of solvate molecules are pre-equilibrated water chunks
+ *  of size 5nm*5nm*5n, located in DATAFILESPATH/Structures/
+ *  minDistance is the minimal allowed distance between water O atom and any atom in the current system
+ *  If successful, the MolecularySystem will has an additional molecule containing all waters. If failed, the ms will
+ *  be untouched, and returns false.
+ *  Note: this function will not check the periodicity of the system. The caller should make sure the ms is large enough
+ *  to contain the region defined by bound.
+  */
+enum WaterType {TIP4P, SPC};
+bool MolSysSolvate(MolecularSystem &ms, Boundary bound, WaterType waterType, double minDistance);
+
 #endif //CUNIMOLSYS_MOLECULARMANIPULATOR_H
 
