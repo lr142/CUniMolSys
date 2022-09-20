@@ -19,8 +19,8 @@ static const double MY_SMALL = 1e-5; // Considered to be 0 if less than this
  * be displayed while processing data */
 static const int MY_LARGE_SYSTEM = 200*1000;
 /* To avoid memory explosion while accidentally read in a super large file. Limit to 1 billion lines (~10G memory if)
- * each line on average consists of 10 characters */
-static const int MY_FILE_LINES_UPPER_BOUND = 1000 * 1000 * 1000;
+ * each line on average consists of 10 characters. Note: INT_MAX is 2.15 billion */
+static const int MY_FILE_LINES_UPPER_BOUND = 1000*1000*1000;
 
 // Resource Files Path
 static string DATAFILESPATH=_DATAFILESPATH_;
