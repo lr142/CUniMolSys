@@ -39,6 +39,11 @@ struct KeywordsColumnPos{
      *  variables for efficiency (saving the time to look up the map for millions of times )*/
     int x=-1, y=-1, z=-1, vx=-1, vy=-1, vz=-1;
     int fx=-1, fy=-1, fz=-1, ix=-1, iy=-1, iz=-1;
+    /* read a line in LAMMPS trajectory file like this:
+     * ITEM: ATOMS id mol type x y z vx vy vz
+     * and find the column number of each keyword. In the example above, the column of "id" is 0
+     * and column of x is 3. */
+    void FindColumnPos(string line);
 };
 
 /* Trajectory means a MolecularSystem with associated trajectories.
@@ -102,31 +107,33 @@ protected:
      * 2. If this is a system-wise property (one value for each frame), add its name in OPERATION_FOR_ALL_SYSTEM_VECTORS macro
      * 3. If this is a per-atom property (like XYZ):
      * 3.1 Add its name in OPERATION_FOR_ALL_PERATOM_VECTORS macro and
-     * 3.2 Declare its name in KeywordsColumnPos. And Modify KeywordsColumnPos::FindColumnNumber(string);
+     * 3.2 Declare its name in KeywordsColumnPos. And Modify KeywordsColumnPos::FindColumnPos(string);
      * 3.3 Modify Trajectory::createMemoryForFrame(), when should the memory be created?
      * 4. Modify Trajectory::ReadOneFrame(), how should the new property be read and recorded?
      * */
 
 protected:
-void createMemoryForFrame(int iFrame,KeywordsColumnPos &kcp);
-void destroyMemoryForFrame(int iFrame);
-void destroyAll();
+    void createMemoryForFrame(int iFrame,KeywordsColumnPos &kcp);
+    void destroyMemoryForFrame(int iFrame);
+    void destroyAll();
 
-/* Given that all lines of a lammpstrj file is read into this->trajFile, this function
- * skims the contents of the file and find out how many frames are there and
- * what are the timesteps (trajFile.timesteps) and starting line numbers (trajFile.startlines) of each frame.
- * This function */
-void read_preparation_step1_find_frames_in_file();
-/* Based on the given maxFrames and/or certainFrames parameters, determine which frames will be actually read.
- * This function will modify (trajFile.timesteps) and (trajFile.startlines) to reflect the result */
-void read_preparation_step2_find_actually_read_frames(int maxFrames, set<int> &certainFrames);
-/* This function will remove duplicate frames in the existing data. By duplication we mean two frames have the
- * same timestep value. The new frames are given in (trajFile.timesteps). If duplication occurs, the old data
- * will be deleted */
-void read_preparation_step3_remove_duplication(bool removeDup);
+    /* read file contents into trajFile */
+    void read_file_step0(string filename);
+    /* Given that all lines of a lammpstrj file is read into this->trajFile, this function
+     * skims the contents of the file and find out how many frames are there and
+     * what are the timesteps (trajFile.timesteps) and starting line numbers (trajFile.startlines) of each frame.
+     * This function */
+    void read_preparation_step1_find_frames_in_file();
+    /* Based on the given maxFrames and/or certainFrames parameters, determine which frames will be actually read.
+     * This function will modify (trajFile.timesteps) and (trajFile.startlines) to reflect the result */
+    void read_preparation_step2_find_actually_read_frames(int maxFrames, set<int> &certainFrames);
+    /* This function will remove duplicate frames in the existing data. By duplication we mean two frames have the
+     * same timestep value. The new frames are given in (trajFile.timesteps). If duplication occurs, the old data
+     * will be deleted */
+    void read_preparation_step3_remove_duplication(bool removeDup);
 
-TrajFile trajFile;
-std::default_random_engine e;
+    TrajFile trajFile;
+    std::default_random_engine e;
 };
 
 

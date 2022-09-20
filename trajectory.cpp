@@ -37,6 +37,13 @@ template <class T> void vector_resize(vector<T> &vec, int size){
     vec.resize(size);
 }
 
+void KeywordsColumnPos::FindColumnPos(string line) {
+    // a line like this: "ITEM: ATOMS id mol type x y z vx vy vz"
+    auto parts = StringSplit(line,' ');
+    parts.erase(parts.begin(),parts.begin()+2);
+
+}
+
 Trajectory::Trajectory(MolecularSystem &ms):ms_(ms),e(0){
     nAtoms_ = ms.AtomsCount();
     nFrames_ = 0;
@@ -81,6 +88,29 @@ bool Trajectory::DiscardFrame(int iFrame){
     return true;
 }
 
+void Trajectory::read_file_step0(std::string filename) {
+    // read all into cache
+    ifstream ifs(filename);
+    if(not ifs)
+        ERROR("Can't open ["+filename+"] to read.");
+    int lineno = 0;
+    string line;
+    this->trajFile.filename = filename;
+    this->trajFile.lines.clear();
+    output("Reading ["+filename+"]...");
+    auto start = chrono::system_clock::now();
+    while(getline(ifs,line)){
+        trajFile.lines.push_back(line);
+        if(++lineno > MY_FILE_LINES_UPPER_BOUND)
+            ERROR("\nFile ["+filename+"] too large (>"+
+                  to_string(MY_FILE_LINES_UPPER_BOUND)+") lines, reading aborted!");
+    }
+    auto end = chrono::system_clock::now();
+    auto duration = chrono::duration_cast<chrono::milliseconds>(end-start);
+    ostringstream oss;
+    oss<<"Done in "<<duration.count()/1000.0<<" seconds."<<endl;
+    output(oss.str());
+}
 void Trajectory::read_preparation_step1_find_frames_in_file(){
     int lineno = 0;
     trajFile.timesteps.clear();
@@ -153,33 +183,17 @@ void Trajectory::read_preparation_step3_remove_duplication(bool removeDup) {
 }
 
 int Trajectory::Read(string filename, int max_workers, int maxFrames, bool removeDup, set<int> certainFrames){
-    // 1st pass, read all into cache, and find out what info are in it.
-    ifstream ifs(filename);
-    if(not ifs)
-        ERROR("Can't open ["+filename+"] to read.");
-    int lineno = 0;
-    string line;
-    this->trajFile.filename = filename;
-    this->trajFile.lines.clear();
-    output("Reading ["+filename+"]...");
-    auto start = chrono::system_clock::now();
-    while(getline(ifs,line)){
-        trajFile.lines.push_back(line);
-        if(++lineno > MY_FILE_LINES_UPPER_BOUND)
-            ERROR("\nFile ["+filename+"] too large (>"+
-                  to_string(MY_FILE_LINES_UPPER_BOUND)+") lines, reading aborted!");
-    }
-    auto end = chrono::system_clock::now();
-    auto duration = chrono::duration_cast<chrono::milliseconds>(end-start);
-    ostringstream oss;
-    oss<<"Done in "<<duration.count()/1000.0<<" seconds."<<endl;
-    output(oss.str());
 
-//    vector<int> ts_in_file;
-//    vector<int> starting_lines;
+    read_file_step0(filename);
     read_preparation_step1_find_frames_in_file();
     read_preparation_step2_find_actually_read_frames(maxFrames,certainFrames);
     read_preparation_step3_remove_duplication(removeDup);
+
+    // Now resize all vectors: Note that the expanded vectors are not intialized and will be deferred
+    // to the moment each frame is read in.
+    nFrames_ += trajFile.nFrames;
+    OPERATION_FOR_ALL_SYSTEM_VECTORS(vector_resize,nFrames_);
+    OPERATION_FOR_ALL_PERATOM_VECTORS(vector_resize,nFrames_);
 
     return 0;
 }
