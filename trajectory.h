@@ -16,9 +16,8 @@ struct TrajFile{
     TrajFile& operator=(const TrajFile &other) = delete;
     std::vector<string> lines; // All lines in the line. This is a huge data structure.
     string filename;
-    int nFrames; // frames in this file, not the entire trajectory
-    vector<int> timesteps; // timestep of each frame;
-    vector<int> startlines; // startline no of each frame, for quick access.
+    vector<int> timesteps; // timestep of each frame; size of thie vector is # of frames in file.
+    vector<int> startlines; // start line no of each frame, for quick access.
 };
 struct KeywordsColumnPos{
     /* The column of various fields in the LAMMPS trajectory file. Note that each frame may have
@@ -37,8 +36,7 @@ struct KeywordsColumnPos{
      * which the keyword appears in each line of an atom.
      * We have could set a map<string,int> to store these number more elegantly, but they are written as
      *  variables for efficiency (saving the time to look up the map for millions of times )*/
-    int x=-1, y=-1, z=-1, vx=-1, vy=-1, vz=-1;
-    int fx=-1, fy=-1, fz=-1, ix=-1, iy=-1, iz=-1;
+    int id,mol,type,x,y,z,vx,vy,vz,fx,fy,fz,ix,iy,iz;
     /* read a line in LAMMPS trajectory file like this:
      * ITEM: ATOMS id mol type x y z vx vy vz
      * and find the column number of each keyword. In the example above, the column of "id" is 0
@@ -109,7 +107,7 @@ protected:
      * 3.1 Add its name in OPERATION_FOR_ALL_PERATOM_VECTORS macro and
      * 3.2 Declare its name in KeywordsColumnPos. And Modify KeywordsColumnPos::FindColumnPos(string);
      * 3.3 Modify Trajectory::createMemoryForFrame(), when should the memory be created?
-     * 4. Modify Trajectory::ReadOneFrame(), how should the new property be read and recorded?
+     * 4. Modify Trajectory::read_one_frame(), how should the new property be read and recorded?
      * */
 
 protected:
@@ -132,6 +130,7 @@ protected:
      * will be deleted */
     void read_preparation_step3_remove_duplication(bool removeDup);
 
+    void read_one_frame(int iFrame, int iFrameInTrajFile);
     TrajFile trajFile;
     std::default_random_engine e;
 };

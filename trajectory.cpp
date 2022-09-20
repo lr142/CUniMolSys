@@ -41,7 +41,16 @@ void KeywordsColumnPos::FindColumnPos(string line) {
     // a line like this: "ITEM: ATOMS id mol type x y z vx vy vz"
     auto parts = StringSplit(line,' ');
     parts.erase(parts.begin(),parts.begin()+2);
-
+    map<string,int> k2c; // key to column pos map
+    for(int i=0;i<parts.size();i++){
+        k2c[parts[i]] = i;
+    }
+#define FIND_POS(VAR) VAR = k2c.contains(#VAR) ? k2c[#VAR] : -1;
+    FIND_POS(id) FIND_POS(mol) FIND_POS(type)
+    FIND_POS(x)  FIND_POS(y)  FIND_POS(z)
+    FIND_POS(vx) FIND_POS(vy) FIND_POS(vz)
+    FIND_POS(fx) FIND_POS(fy) FIND_POS(fz)
+#undef FIND_POS
 }
 
 Trajectory::Trajectory(MolecularSystem &ms):ms_(ms),e(0){
@@ -182,19 +191,43 @@ void Trajectory::read_preparation_step3_remove_duplication(bool removeDup) {
     }
 }
 
-int Trajectory::Read(string filename, int max_workers, int maxFrames, bool removeDup, set<int> certainFrames){
+void Trajectory::read_one_frame(int iFrame,int iFrameInTrajFile){
+    int startline = trajFile.startlines[iFrameInTrajFile];
+    int lineno = startline;
+    int nAtoms = stoi(trajFile.lines[lineno+3]);
 
+    // Write systemwise info
+    ts_[iFrame] = trajFile.timesteps[iFrameInTrajFile];
+
+    // Allocate per-atom memory
+    while(not StringRegexMatch(trajFile.lines[++lineno], "ITEM: ATOMS"));
+    KeywordsColumnPos kcp;
+    kcp.FindColumnPos(trajFile.lines[lineno]);
+    this->createMemoryForFrame(iFrame,kcp);
+    // Read every atom,
+    for(int i=0;i<nAtoms;i++){
+        cout<<trajFile.lines[i]<<endl;
+        exit(0);
+    }
+
+}
+
+int Trajectory::Read(string filename, int max_workers, int maxFrames, bool removeDup, set<int> certainFrames){
     read_file_step0(filename);
     read_preparation_step1_find_frames_in_file();
     read_preparation_step2_find_actually_read_frames(maxFrames,certainFrames);
     read_preparation_step3_remove_duplication(removeDup);
 
-    // Now resize all vectors: Note that the expanded vectors are not intialized and will be deferred
-    // to the moment each frame is read in.
-    nFrames_ += trajFile.nFrames;
+    // Now resize all vectors: Note that the expanded vectors are not initialized until
+    // the moment each frame is read in.
+    int oldNFrames = nFrames_;
+    nFrames_ += trajFile.timesteps.size();
     OPERATION_FOR_ALL_SYSTEM_VECTORS(vector_resize,nFrames_);
     OPERATION_FOR_ALL_PERATOM_VECTORS(vector_resize,nFrames_);
 
+    for(int i=oldNFrames;i<nFrames_;i++){
+        read_one_frame(oldNFrames+i, i);
+    }
     return 0;
 }
 
@@ -247,7 +280,6 @@ void Trajectory::_testMultiThread() {
     }
 
     // check consistency
-
 
     for(int iFrame=0;iFrame<nFrames_;iFrame++){
         for(int iAtom=0;iAtom<nAtoms_;iAtom++){

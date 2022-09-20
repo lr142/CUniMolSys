@@ -24,7 +24,7 @@ TEST(multithread,DISABLED_t1){
         TestMultiThread();
 }
 
-TEST(Reading,DISABLED_t1){
+TEST(Reading,t1){
     MolecularSystem ms;
     Trajectory traj(ms);
     set<int> certainFrames;
@@ -34,7 +34,7 @@ TEST(Reading,DISABLED_t1){
     traj.Read(curPath+"system.lammpstrj",-1,50,true,certainFrames);
 }
 
-TEST(KeywordsColumnPos,t1){
+TEST(KeywordsColumnPos,DISABLED_t1){
     KeywordsColumnPos kcp;
     kcp.FindColumnPos("ITEM: ATOMS id mol type x y z vx vy vz");
 }
