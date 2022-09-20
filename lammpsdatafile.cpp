@@ -1,6 +1,8 @@
 #include "lammpsdatafile.h"
+#include "molecularmanipulator.h"
 #include <iostream>
 #include <fstream>
+#include <sstream>
 using namespace std;
 
 /* Can only understand LAMMPS data file in the "full" atom style
@@ -32,8 +34,6 @@ using namespace std;
  */
 
 bool LAMMPSDataFile::Read(MolecularSystem &ms, string filename){
-#define REPORT_ERR ERROR("\nWhile reading line "+to_string(lineno+1)+" of ["+filename+"]:\n\""+line+"\"")
-
     ifstream ifs(filename);
     if(!ifs)
         ERROR("Can't open ["+filename+"] to read.");
@@ -45,27 +45,116 @@ bool LAMMPSDataFile::Read(MolecularSystem &ms, string filename){
     int nAtomTypes;
     int nBonds;
     int nBondTypes;
+    map<int,string> atomElementOfEachType; //inferred from the mass of each atom type
 
-    while(getline(ifs,line)) {
+    while(getline(ifs,line)){
         ++lineno;
-        if (!StringEndsWith(line, "atom", false))
-            continue;
-        else
-            nAtoms = stoi(StringSplit(line)[0]);
+        lines.push_back(line);
+        if(lineno>MY_FILE_LINES_UPPER_BOUND)
+            ERROR("File ["+filename+"] too large (>"+
+            to_string(MY_FILE_LINES_UPPER_BOUND)+") lines, reading aborted!");
     }
-    getline(ifs,line);
-    nAtomTypes = stoi(StringSplit(line)[0]);
-    getline(ifs,line);
-    nBonds = stoi(StringSplit(line)[0]);
-    getline(ifs,line);
-    nBondTypes = stoi(StringSplit(line)[0]);
-    lineno+= 3;
+    try {
+        // Read header
+        lineno = 2;
+        line = lines[lineno];
+        nAtoms = stoi(StringSplit(line)[0]);
+        ++lineno;
+        line = lines[lineno];
+        nAtomTypes = stoi(StringSplit(line)[0]);
+        ++lineno;
+        line = lines[lineno];
+        nBonds = stoi(StringSplit(line)[0]);
+        ++lineno;
+        line = lines[lineno];
+        nBondTypes = stoi(StringSplit(line)[0]);
+        // read boundary
+        while (!StringRegexMatch(lines[++lineno], "xlo"));
+        double lohi[3][2];
+        for (int i = 0; i < 3; i++) {
+            auto parts = StringSplit(lines[lineno + i]);
+            for (int j = 0; j < 2; j++) {
+                lohi[i][j] = stof(parts[j]);
+            }
+        }
+        while (!StringRegexMatch(lines[++lineno], "Masses"));
+        lineno += 2;
+        while (StringRegexMatch(lines[lineno], "[0-9]+ [0-9.]+")) {
+            auto parts = StringSplit(lines[lineno++]);
+            int type = stoi(parts[0]);
+            double mass = stof(parts[1]);
+            string element = PeriodicTable::PossibleElementWithGivenWeight(mass);
+            atomElementOfEachType[type] = element;
+        }
+//        for (auto &item: atomElementOfEachType)
+//            cout << item.first << " " << item.second << endl;
+        // Pari Coeffs, Bond Coeffs, Angle Coeffs, Dihedral Coeffs, Improper Coeffs are skipped
+        // Read Atoms
+        while(not StringRegexMatch(lines[++lineno],"Atoms") );
+        lineno+=2;
+        // The atoms will come in random order. We'll add all atoms into one molecule, then sort the atoms, and
+        // separate the atoms into multiple molecules;
+        ms.AddMolecule(Molecule());
+        map<string,string> atomSerialToMolSerialMap;
+        int nTotalAtomsCount = 0;
+        while(StringRegexMatch(lines[lineno],"[0-9]+ [0-9]+ ")){
+            // One line for an atom: (the last three numbers are images flags and are ignored)
+            // 5 1 8 2.1 2.94997 2.96969 4.25362 0 0 0
+            Atom a;
+            string molSerial;
+            istringstream iss(lines[lineno]);
+            iss>>a.globalSerial>>molSerial>>a.type>>a.charge>>a.xyz[0]>>a.xyz[1]>>a.xyz[2];
+            a.element = a.name = atomElementOfEachType[stoi(a.type)];
+            ms[0].AddAtom(a);
+            atomSerialToMolSerialMap[a.globalSerial] = molSerial;
+            nTotalAtomsCount++;
+            ++lineno;
+        }
+        // Now sort the atoms. Note the lambda function compares the globalSerials (converts to int) of two atoms.
+        sort(ms[0].atoms.begin(), ms[0].atoms.end(),
+             [](auto &a1, auto &a2) {
+                    return stoi(a1->globalSerial)<stoi(a2->globalSerial);}
+             );
+        assert(nTotalAtomsCount == nAtoms); // if not true, the declared # of atoms != actual read atoms.
+        vector<int> map_for_reconstructing(nTotalAtomsCount); // needed for MolSysReorganize() to redistribute atoms into multiple mols;
+        for(auto &item:atomSerialToMolSerialMap){
+            int atomIndex = stoi(item.first)-1;
+            int molIndex = stoi(item.second)-1;
+            map_for_reconstructing[atomIndex] = molIndex;
+        }
+        MolSysReorganize(ms,map_for_reconstructing);
 
-
-
-
+        // "Velocities" are ignored
+        // Now we read the bonds. Before that, let's renumber atoms ans make a MolecularAccessor
+        ms.RenumberAtomSerials();
+        MolecularSystemAccessor msa(ms);
+        while(not StringRegexMatch(lines[++lineno],"Bonds"));
+        lineno+=2;
+        while(StringRegexMatch(lines[lineno],"[0-9]+ [0-9]+")){
+            Bond b;
+            string tmp;
+            istringstream iss(lines[lineno]);
+            iss>>tmp>>b.type>>b.atom1>>b.atom2;
+            auto a1_id = msa.MolAndLocalIndexOfAtom(b.atom1);
+            auto a2_id = msa.MolAndLocalIndexOfAtom(b.atom2);
+            if(a1_id.first == a2_id.first) {
+                // In-molecule bond
+                b.atom1 = ms[a1_id.first][a1_id.second].serial;
+                b.atom2 = ms[a2_id.first][a2_id.second].serial;
+                ms[a1_id.first].bonds.push_back(make_shared<Bond>(b));
+            }else{
+                // Inter-molecular
+                ms.interMolecularBonds.push_back(make_shared<Bond>(b));
+            }
+            lineno++;
+        }
+        // No renumbering needed for the second time.
+        // Angles, Dihedrals, Impropers are ignored.
+        return nTotalAtomsCount>0;
+    }catch(exception e){
+        ERROR("\nWhile reading line "+to_string(lineno+1)+" of ["+filename+"]:\n\""+line+"\"");
     }
-    return true;
+    return false; // should not reach here if no exception
 }
 bool LAMMPSDataFile::Write(MolecularSystem &ms, string filename){
     // Maybe needs a RTTI to determine whether can be written as LAMMPSData
