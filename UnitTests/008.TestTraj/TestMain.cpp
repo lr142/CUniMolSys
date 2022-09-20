@@ -26,12 +26,14 @@ TEST(multithread,DISABLED_t1){
 
 TEST(Reading,t1){
     MolecularSystem ms;
+    QuickOpen(ms,curPath+"water.data");
+    cout<<ms.Summary()<<endl;
     Trajectory traj(ms);
-    set<int> certainFrames;
-    for(int i=4;i<250;i+=3){
-        certainFrames.insert(i*10000);
-    }
-    traj.Read(curPath+"system.lammpstrj",-1,50,true,certainFrames);
+//    set<int> certainFrames;
+//    for(int i=4;i<250;i+=3){
+//        certainFrames.insert(i*10000);
+//    }
+    traj.Read(curPath+"water.lammpstrj");
 }
 
 TEST(KeywordsColumnPos,DISABLED_t1){

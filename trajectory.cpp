@@ -15,11 +15,12 @@ bool double_equal(double a,double b){
     return fabs(a-b)<MY_SMALL;
 }
 #define MY_ASSERT_DOUBLE_EQUAL(a,b) if(not double_equal((a),(b))){cout<<iFrame<<" "<<iAtom<<" "<<(a)<<" "<<(b)<<endl;}
-template <class T> void vector_free_space_at_pos(vector<T*> &vec, int iFrame, int nAtoms, bool condition){
-    if(condition)
-        vec[iFrame] = new T[nAtoms];
-    else
+template <class T> void vector_free_space_at_pos(vector<T*> &vec, int iFrame, int nAtoms, bool missing_condition){
+    if(missing_condition)
         vec[iFrame] = nullptr;
+    else
+        vec[iFrame] = new T[nAtoms];
+
 }
 template <class T> void vector_create_space_at_pos(vector<T*> &vec, int iFrame){
     if(vec[iFrame] != nullptr) {
@@ -47,10 +48,21 @@ void KeywordsColumnPos::FindColumnPos(string line) {
     }
 #define FIND_POS(VAR) VAR = k2c.contains(#VAR) ? k2c[#VAR] : -1;
     FIND_POS(id) FIND_POS(mol) FIND_POS(type)
-    FIND_POS(x)  FIND_POS(y)  FIND_POS(z)
     FIND_POS(vx) FIND_POS(vy) FIND_POS(vz)
     FIND_POS(fx) FIND_POS(fy) FIND_POS(fz)
+    FIND_POS(ix)  FIND_POS(iy)  FIND_POS(iz)
+    FIND_POS(x)  FIND_POS(y)  FIND_POS(z)
+    FIND_POS(xu)  FIND_POS(yu)  FIND_POS(zu)
+    FIND_POS(xs)  FIND_POS(ys)  FIND_POS(zs)
+    FIND_POS(xsu)  FIND_POS(ysu)  FIND_POS(zsu)
 #undef FIND_POS
+    // Special rules: if x not reported but xu (unwrapped), xs(scaled), xsu(scaled unwrapped)
+    // Use that in the line of succession x <-- xu <-- xs <-- xsu
+#define REPLACE_IF(VAR1, VAR2) if (VAR1==-1 and VAR2!=-1){VAR1=VAR2;}
+    REPLACE_IF(xs,xsu)  REPLACE_IF(xu,xs)  REPLACE_IF(x,xu)
+    REPLACE_IF(ys,ysu)  REPLACE_IF(yu,ys)  REPLACE_IF(y,yu)
+    REPLACE_IF(zs,zsu)  REPLACE_IF(zu,zs)  REPLACE_IF(z,zu)
+#undef REPLACE_IF
 }
 
 Trajectory::Trajectory(MolecularSystem &ms):ms_(ms),e(0){
@@ -64,16 +76,16 @@ Trajectory::~Trajectory(){
 void Trajectory::createMemoryForFrame(int iFrame,KeywordsColumnPos &kcp) {
     bool cond;
     // Unfortunately, we can't write a macro to make this function simpler.
-    cond = kcp.x<0 or kcp.y<0 or kcp.z<0;
+    cond = kcp.x<0 and kcp.y<0 and kcp.z<0;
     vector_free_space_at_pos(x_, iFrame, nAtoms_, cond);
 
-    cond = kcp.vx<0 or kcp.vy<0 or kcp.vz<0;
+    cond = kcp.vx<0 and kcp.vy<0 and kcp.vz<0;
     vector_free_space_at_pos(v_, iFrame, nAtoms_, cond);
 
-    cond = kcp.fx<0 or kcp.fy<0 or kcp.fz<0;
+    cond = kcp.fx<0 and kcp.fy<0 and kcp.fz<0;
     vector_free_space_at_pos(f_, iFrame, nAtoms_, cond);
 
-    cond = kcp.ix<0 or kcp.iy<0 or kcp.iz<0;
+    cond = kcp.ix<0 and kcp.iy<0 and kcp.iz<0;
     vector_free_space_at_pos(i_, iFrame, nAtoms_, cond);
 }
 
@@ -203,11 +215,39 @@ void Trajectory::read_one_frame(int iFrame,int iFrameInTrajFile){
     while(not StringRegexMatch(trajFile.lines[++lineno], "ITEM: ATOMS"));
     KeywordsColumnPos kcp;
     kcp.FindColumnPos(trajFile.lines[lineno]);
+
+    if(kcp.id==-1)
+        ERROR("\nTrajectory file ["+trajFile.filename+"] missing key info: id");
+    if(kcp.x==-1 or kcp.y==-1 or kcp.z==-1)
+        ERROR("\nTrajectory file ["+trajFile.filename+"] missing key info: coordinates");
+
     this->createMemoryForFrame(iFrame,kcp);
     // Read every atom,
     for(int i=0;i<nAtoms;i++){
-        cout<<trajFile.lines[i]<<endl;
-        exit(0);
+        auto parts = StringSplit(trajFile.lines[++lineno]);
+        int index = stoi(parts[kcp.id])-1;
+        this->x_[iFrame][index][0] = stof(parts[kcp.x]);
+        this->x_[iFrame][index][1] = stof(parts[kcp.y]);
+        this->x_[iFrame][index][2] = stof(parts[kcp.z]);
+        // The following info are not always present
+        if(kcp.vx!=-1 or kcp.vy!=-1 or kcp.vz!=-1) {
+            // if any one of vx, vy, or vz is present, the entire space for v is created.
+            this->v_[iFrame][index][0] = stof(parts[kcp.vx]);
+            this->v_[iFrame][index][1] = stof(parts[kcp.vy]);
+            this->v_[iFrame][index][2] = stof(parts[kcp.vz]);
+        }
+        if(kcp.fx!=-1 or kcp.fy!=-1 or kcp.fz!=-1) {
+            // if any one of vx, vy, or vz is present, the entire space for v is created.
+            this->f_[iFrame][index][0] = stof(parts[kcp.fx]);
+            this->f_[iFrame][index][1] = stof(parts[kcp.fy]);
+            this->f_[iFrame][index][2] = stof(parts[kcp.fz]);
+        }
+        if(kcp.ix!=-1 or kcp.iy!=-1 or kcp.iz!=-1) {
+            // if any one of vx, vy, or vz is present, the entire space for v is created.
+            this->i_[iFrame][index][0] = stof(parts[kcp.ix]);
+            this->i_[iFrame][index][1] = stof(parts[kcp.iy]);
+            this->i_[iFrame][index][2] = stof(parts[kcp.iz]);
+        }
     }
 
 }

@@ -6,9 +6,11 @@
 #include <map>
 #include <cmath>
 #include <string>
+#include <fstream>
 using std::vector;
 using std::string;
 using std::pair;
+using std::ifstream;
 
 
 static const double MY_PI = 3.14159265358979323846264338327950;
@@ -42,9 +44,14 @@ string StringRemoveComment(string str);
 bool StringRegexMatch(string str,string pattern,bool caseSensitive=true);
 bool StringStartsWith(string str,string pattern,bool caseSensitive=true);
 bool StringEndsWith(string str,string pattern,bool caseSensitive=true);
-
 void ProgressBar(double percent,int length = 50);
-
+/* These two functions will be convenient when reading files if you want to jump to a desired
+ * location. The 1st version scans lines between line lo and line hi for pattern. If found, it
+ * writes the correct line no to lineno and returns true. If not found, it returns false.
+ * In the 2nd version, an fstream is read at most max_lines lines. If found, the desired line
+ * is written in line and returns true, otherwise returns false. */
+bool JumpToLine(vector<string> &lines, string pattern, int &lineno, int lo, int hi);
+bool JumpToLine(ifstream &ifs, string pattern, string &line, int max_lines);
 
 // This class controls how to deal with stdout and stderr messages.
 // It has two child classes: ErrorHandler, OutputHandler

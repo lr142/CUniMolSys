@@ -36,7 +36,8 @@ struct KeywordsColumnPos{
      * which the keyword appears in each line of an atom.
      * We have could set a map<string,int> to store these number more elegantly, but they are written as
      *  variables for efficiency (saving the time to look up the map for millions of times )*/
-    int id,mol,type,x,y,z,vx,vy,vz,fx,fy,fz,ix,iy,iz;
+    int id,mol,type,vx,vy,vz,fx,fy,fz,ix,iy,iz;
+    int x,y,z,xu,yu,zu,xs,ys,zs,xsu,ysu,zsu;
     /* read a line in LAMMPS trajectory file like this:
      * ITEM: ATOMS id mol type x y z vx vy vz
      * and find the column number of each keyword. In the example above, the column of "id" is 0

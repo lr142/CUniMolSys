@@ -1,5 +1,6 @@
 #include "lammpsdatafile.h"
 #include "molecularmanipulator.h"
+#include "utility.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -7,7 +8,7 @@ using namespace std;
 
 /* Can only understand LAMMPS data file in the "full" atom style
  * * In every LAMMPS data file, the following info can be read:
-* A comment line (including timestep) eg. LAMMPS data file via write_data, version 3 Mar 2020, timestep = 10000
+* A comment line (including timestep) eg. LAMMPS data file via write_data,
 * number of atoms, bonds, angle, dihedrals, etc.
 * boundary info, e.g:
 * -2.0000000000000000e+01 1.7000000000000000e+02 ylo yhi
@@ -33,6 +34,7 @@ using namespace std;
 * An massless (<0.1) atom is recognized as pseudo atom 'M'.
  */
 
+
 bool LAMMPSDataFile::Read(MolecularSystem &ms, string filename){
     ifstream ifs(filename);
     if(!ifs)
@@ -55,21 +57,19 @@ bool LAMMPSDataFile::Read(MolecularSystem &ms, string filename){
             to_string(MY_FILE_LINES_UPPER_BOUND)+") lines, reading aborted!");
     }
     try {
-        // Read header
-        lineno = 2;
-        line = lines[lineno];
-        nAtoms = stoi(StringSplit(line)[0]);
-        ++lineno;
-        line = lines[lineno];
-        nAtomTypes = stoi(StringSplit(line)[0]);
-        ++lineno;
-        line = lines[lineno];
-        nBonds = stoi(StringSplit(line)[0]);
-        ++lineno;
-        line = lines[lineno];
-        nBondTypes = stoi(StringSplit(line)[0]);
-        // read boundary
-        while (!StringRegexMatch(lines[++lineno], "xlo"));
+        // For format of LAMMPS file, especially the header, are not always regular.
+        // But the info we look for should always appear within the first 50 lines.
+        if(JumpToLine(lines,"[0-9]+ atoms",lineno,0,50))
+            nAtoms = stoi(StringSplit(lines[lineno])[0]);
+        if(JumpToLine(lines,"[0-9]+ bonds",lineno,0,50))
+            nBonds = stoi(StringSplit(lines[lineno])[0]);
+        if(JumpToLine(lines,"[0-9]+ atom types",lineno,0,50))
+            nAtomTypes = stoi(StringSplit(lines[lineno])[0]);
+        if(JumpToLine(lines,"[0-9]+ bond types",lineno,0,50))
+            nBondTypes = stoi(StringSplit(lines[lineno])[0]);
+
+        //Read boundary
+        JumpToLine(lines,"xlo xhi",lineno,0,lines.size());
         double lohi[3][2];
         for (int i = 0; i < 3; i++) {
             auto parts = StringSplit(lines[lineno + i]);
@@ -77,9 +77,9 @@ bool LAMMPSDataFile::Read(MolecularSystem &ms, string filename){
                 lohi[i][j] = stof(parts[j]);
             }
         }
-        while (!StringRegexMatch(lines[++lineno], "Masses"));
+        JumpToLine(lines,"Masses",lineno,0,lines.size());
         lineno += 2;
-        while (StringRegexMatch(lines[lineno], "[0-9]+ [0-9.]+")) {
+        while (StringRegexMatch(lines[lineno], "[0-9]+ [.0-9]+")) {
             auto parts = StringSplit(lines[lineno++]);
             int type = stoi(parts[0]);
             double mass = stof(parts[1]);
@@ -90,7 +90,7 @@ bool LAMMPSDataFile::Read(MolecularSystem &ms, string filename){
 //            cout << item.first << " " << item.second << endl;
         // Pari Coeffs, Bond Coeffs, Angle Coeffs, Dihedral Coeffs, Improper Coeffs are skipped
         // Read Atoms
-        while(not StringRegexMatch(lines[++lineno],"Atoms") );
+        JumpToLine(lines,"Atoms",lineno,0,lines.size());
         lineno+=2;
         // The atoms will come in random order. We'll add all atoms into one molecule, then sort the atoms, and
         // separate the atoms into multiple molecules;
@@ -128,7 +128,7 @@ bool LAMMPSDataFile::Read(MolecularSystem &ms, string filename){
         // Now we read the bonds. Before that, let's renumber atoms ans make a MolecularAccessor
         ms.RenumberAtomSerials();
         MolecularSystemAccessor msa(ms);
-        while(not StringRegexMatch(lines[++lineno],"Bonds"));
+        JumpToLine(lines,"Atoms",lineno,0,lines.size());
         lineno+=2;
         while(StringRegexMatch(lines[lineno],"[0-9]+ [0-9]+")){
             Bond b;

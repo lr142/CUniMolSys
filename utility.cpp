@@ -105,6 +105,29 @@ void ProgressBar(double percent,int length){
     cout<<"\r"+oss.str()<<ends<<flush;
 }
 
+/* These two functions will be convenient when reading files if you want to jump to a desired
+ * location. The 1st version scans lines between line lo and line hi for pattern. If found, it
+ * writes the correct line no to lineno and returns true. If not found, it returns false.
+ * In the 2nd version, an fstream is read at most max_lines lines. If found, the desired line
+ * is written in line and returns true, otherwise returns false. */
+bool JumpToLine(vector<string> &lines, string pattern, int &lineno, int lo, int hi){
+    for(lineno=lo;lineno<hi;lineno++){
+        if(StringRegexMatch(lines[lineno],pattern))
+            return true;
+    }
+    return false;
+}
+bool JumpToLine(ifstream &ifs, string pattern, string &line, int max_lines){
+    int counter = 0;
+    while( (not ifs) and counter<max_lines ){
+        counter++;
+        getline(ifs,line);
+        if(StringRegexMatch(line,pattern))
+            return true;
+    }
+    return false;
+}
+
 ErrorAndOutputHandler::ErrorAndOutputHandler():onOffState_(true),pOutput_(&cout){}
 void ErrorAndOutputHandler::SetOutput(std::ostream &ostream) {pOutput_ = &ostream;}
 void ErrorAndOutputHandler::TurnOff() {onOffState_ = false;}
