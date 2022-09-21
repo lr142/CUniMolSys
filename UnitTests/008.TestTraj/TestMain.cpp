@@ -19,12 +19,17 @@ void TestMultiThread(){
 
 string curPath = DATAFILESPATH+"/../UnitTests/008.TestTraj/";
 
-TEST(multithread,DISABLED_t1){
+TEST(KeywordsColumnPos,DISABLED_t1){
+    KeywordsColumnPos kcp;
+    kcp.FindColumnPos("ITEM: ATOMS id mol type x y z vx vy vz");
+}
+
+TEST(multithread,DISABLED_t2){
     while(true)
         TestMultiThread();
 }
 
-TEST(Reading,t1){
+TEST(Reading,DISABLED_t1){
     MolecularSystem ms;
     QuickOpen(ms,curPath+"water.data");
     cout<<ms.Summary()<<endl;
@@ -33,10 +38,18 @@ TEST(Reading,t1){
 //    for(int i=4;i<250;i+=3){
 //        certainFrames.insert(i*10000);
 //    }
-    traj.Read(curPath+"water.lammpstrj");
+    traj.Read(curPath+"water.traj");
 }
 
-TEST(KeywordsColumnPos,DISABLED_t1){
-    KeywordsColumnPos kcp;
-    kcp.FindColumnPos("ITEM: ATOMS id mol type x y z vx vy vz");
+TEST(Reading,t2){
+    MolecularSystem ms;
+    QuickOpen(ms,curPath+"polymer.data");
+    cout<<ms.Summary()<<endl;
+    Trajectory traj(ms);
+//    set<int> certainFrames;
+//    for(int i=4;i<250;i+=3){
+//        certainFrames.insert(i*10000);
+//    }
+    traj.Read(curPath+"polymer.traj");
 }
+

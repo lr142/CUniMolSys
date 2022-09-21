@@ -92,7 +92,7 @@ bool LAMMPSDataFile::Read(MolecularSystem &ms, string filename){
         // Read Atoms
         JumpToLine(lines,"Atoms",lineno,0,lines.size());
         lineno+=2;
-        // The atoms will come in random order. We'll add all atoms into one molecule, then sort the atoms, and
+        // The atoms will come in random order. We'll add all atoms into one molecule, then sort_atoms the atoms, and
         // separate the atoms into multiple molecules;
         ms.AddMolecule(Molecule());
         map<string,string> atomSerialToMolSerialMap;
@@ -110,7 +110,7 @@ bool LAMMPSDataFile::Read(MolecularSystem &ms, string filename){
             nTotalAtomsCount++;
             ++lineno;
         }
-        // Now sort the atoms. Note the lambda function compares the globalSerials (converts to int) of two atoms.
+        // Now sort_atoms the atoms. Note the lambda function compares the globalSerials (converts to int) of two atoms.
         sort(ms[0].atoms.begin(), ms[0].atoms.end(),
              [](auto &a1, auto &a2) {
                     return stoi(a1->globalSerial)<stoi(a2->globalSerial);}

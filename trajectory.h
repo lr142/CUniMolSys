@@ -16,8 +16,9 @@ struct TrajFile{
     TrajFile& operator=(const TrajFile &other) = delete;
     std::vector<string> lines; // All lines in the line. This is a huge data structure.
     string filename;
-    vector<int> timesteps; // timestep of each frame; size of thie vector is # of frames in file.
+    vector<int> timesteps; // timestep of each frame; size of this vector is # of frames in file.
     vector<int> startlines; // start line no of each frame, for quick access.
+    vector<int> nAtoms; // number of atoms of each frame in this file.
 };
 struct KeywordsColumnPos{
     /* The column of various fields in the LAMMPS trajectory file. Note that each frame may have
@@ -45,6 +46,32 @@ struct KeywordsColumnPos{
     void FindColumnPos(string line);
 };
 
+/* A frame in the trajectory */
+class TrajectoryFrame{
+public:
+    TrajectoryFrame();
+    ~TrajectoryFrame();
+    void Read(TrajFile &trajFile,int iFrameInTrajFile);
+    friend class Trajectory;
+protected:
+    void createMemory(KeywordsColumnPos &kcp);
+    void destroyMemory();
+    void sort_atoms();
+
+    /* number of atoms in this frame. This number may be smaller (if user dump a specific group instead of all)
+     * or larger (when running GCMC) then number of atoms in the system. */
+    int nAtoms_;
+    int ts_; // timestep of this frame.
+    /* */
+    int* s_; // global serials of every atom in this frame. ('id' reported in dump file)
+    XYZ* x_; // coordinates
+    XYZ* v_; // velocities
+    XYZ* f_; // forces;
+    XYZ_T_<int>* i_; // periodic image flags (ix,iy,iz in LAMMPS).
+
+
+};
+
 /* Trajectory means a MolecularSystem with associated trajectories.
  * We use composite instead of inheritance since there may not be a situation where the user needs a MolecularSystem
  * while we only have a Trajectory at hand.
@@ -53,7 +80,7 @@ class Trajectory{
 public:
     Trajectory(MolecularSystem &ms);
     ~Trajectory();
-    void _thread_main_(int iThread,int iFrameStart, int iFrameEnd,std::promise<bool> ret);
+    void _thread_main_(int iThread,int iFrameStart, int iFrameEnd, int NAtoms);
     void _testMultiThread();
 
     /* Read a trajectory file 'filename'. The caller can call Read() multiple times to read multiple files. The trajectory
@@ -66,55 +93,18 @@ public:
      * if certainFrames is non-empty, only the frames specified in certainFrames (by thier timestep values)  will be
      *   read. If the frame ts specified in [certainFrames] are not present in the actual file, this frame will be simply
      *   ignored. This is useful when the caller does not know how many frames are in the file.
-     * This function returns the number of frames actually.
+     * This function returns the number of actually read frames.
      * */
     int Read(string filename, int max_workers=-1, int maxFrames=(int)MY_LARGE,
              bool removeDup=true, std::set<int> certainFrames=set<int>());
+    /* Discard a specific frame */
     bool DiscardFrame(int iFrame);
+    /* Discard all frames, release the mem, and get ready to another trajctory file */
+    void Clear();
+    inline int NFrames() {return frames_.size();}
 protected:
     MolecularSystem &ms_;
-    /* number of atoms in the system. Assume all frames have the same number of atoms. This means GCMC is not directly
-    supported. However, enough space can be reserved in the beginning for atoms coming into the system at a later time. */
-    int nAtoms_;
-    int nFrames_; // number of frames
-    double timestep_in_fs; // timestep in fs (Same as the convention of 'units real' in LAMMPS)
-
-    vector<int> ts_; // size() == nFrames_; recorded timesteps of each frame.
-    /* The following data structures stores the core info. Each of which is a vector of length nFrames. e.g. x_[i] records
-     * the coordinates of all atoms in frame i. x_[i] itself is an array of struct XYZ with length = nAtoms.
-     * Note: velocities/forces/image_flags may not be available in all trajectories.
-     * But these vectors are **ALWAYS** having lengths of nFrames.
-     * If in some frames, the corresponding info is absent, say i_ is not present in frame 10, then
-     * i_[9] == nullptr;
-     * Currently using double to store these data. If memory is an issue, recompile with using XYZ =  XYZ_T_<float> in utility.h;
-     * */
-    vector<XYZ*> x_; // coordinates
-    vector<XYZ*> v_; // velocities
-    vector<XYZ*> f_; // forces;
-    vector<XYZ_T_<int>*> i_; // periodic image flags (ix,iy,iz in LAMMPS).
-    /* x_,v_,f_,i_ are highly isomorphic. I wrote this macro to carry out same operations on all vectors instead of writing
-     * these four vector again and again. If in the future another vector is added, e.g. atomic charges (which is changing)
-     * add [vector<double*> charges_;] above, and add [opers(charges_,(arg))] in the macro below;
-     * Similarly, ts_ records info about the system as every trajectory frame. Another macro is defined to perform
-     * operations on this kind of vector for possibility of future extension (e.g. system size in PVT sims);
-     * */
-
-#define OPERATION_FOR_ALL_PERATOM_VECTORS(opers,arg) opers(x_,(arg)); opers(v_,(arg)); opers(f_,(arg)); opers(i_,(arg));
-#define OPERATION_FOR_ALL_SYSTEM_VECTORS(opers,arg) opers(ts_,(arg));
-    /* For your convenience, below is a list of places you need to modify when new properties are to be included:
-     * 1. Declare this property in Trajectory::vector<T> newProp;
-     * 2. If this is a system-wise property (one value for each frame), add its name in OPERATION_FOR_ALL_SYSTEM_VECTORS macro
-     * 3. If this is a per-atom property (like XYZ):
-     * 3.1 Add its name in OPERATION_FOR_ALL_PERATOM_VECTORS macro and
-     * 3.2 Declare its name in KeywordsColumnPos. And Modify KeywordsColumnPos::FindColumnPos(string);
-     * 3.3 Modify Trajectory::createMemoryForFrame(), when should the memory be created?
-     * 4. Modify Trajectory::read_one_frame(), how should the new property be read and recorded?
-     * */
-
-protected:
-    void createMemoryForFrame(int iFrame,KeywordsColumnPos &kcp);
-    void destroyMemoryForFrame(int iFrame);
-    void destroyAll();
+    vector<TrajectoryFrame> frames_;
 
     /* read file contents into trajFile */
     void read_file_step0(string filename);
@@ -126,12 +116,11 @@ protected:
     /* Based on the given maxFrames and/or certainFrames parameters, determine which frames will be actually read.
      * This function will modify (trajFile.timesteps) and (trajFile.startlines) to reflect the result */
     void read_preparation_step2_find_actually_read_frames(int maxFrames, set<int> &certainFrames);
-    /* This function will remove duplicate frames in the existing data. By duplication we mean two frames have the
+    /* This function will remove duplicate frames in the existing data. By 'duplication' we mean two frames have the
      * same timestep value. The new frames are given in (trajFile.timesteps). If duplication occurs, the old data
      * will be deleted */
     void read_preparation_step3_remove_duplication(bool removeDup);
 
-    void read_one_frame(int iFrame, int iFrameInTrajFile);
     TrajFile trajFile;
     std::default_random_engine e;
 };

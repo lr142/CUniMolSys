@@ -11,31 +11,18 @@ void my_assert_true(bool statement){
     if(not (statement))
         throw exception();
 }
-bool double_equal(double a,double b){
-    return fabs(a-b)<MY_SMALL;
-}
-#define MY_ASSERT_DOUBLE_EQUAL(a,b) if(not double_equal((a),(b))){cout<<iFrame<<" "<<iAtom<<" "<<(a)<<" "<<(b)<<endl;}
-template <class T> void vector_free_space_at_pos(vector<T*> &vec, int iFrame, int nAtoms, bool missing_condition){
-    if(missing_condition)
-        vec[iFrame] = nullptr;
-    else
-        vec[iFrame] = new T[nAtoms];
 
+template<class T> void ptr_create_space(T* &ptr, int size, bool nullptr_condition){
+    if(nullptr_condition)
+        ptr = nullptr;
+    else
+        ptr = new T[size];
 }
-template <class T> void vector_create_space_at_pos(vector<T*> &vec, int iFrame){
-    if(vec[iFrame] != nullptr) {
-        delete[] vec[iFrame];
-        vec[iFrame] = nullptr;
+template <class T> void ptr_destroy_space(T* &ptr){
+    if(ptr != nullptr){
+        delete [] ptr;
+        ptr = nullptr;
     }
-}
-template <class T> void vector_erase_at(vector<T> &vec, int pos){
-    if(vec.size()!=0) {
-        my_assert_true(vec.size() > pos);
-        vec.erase(vec.begin() + pos, vec.begin() + pos + 1);
-    }
-}
-template <class T> void vector_resize(vector<T> &vec, int size){
-    vec.resize(size);
 }
 
 void KeywordsColumnPos::FindColumnPos(string line) {
@@ -56,59 +43,147 @@ void KeywordsColumnPos::FindColumnPos(string line) {
     FIND_POS(xs)  FIND_POS(ys)  FIND_POS(zs)
     FIND_POS(xsu)  FIND_POS(ysu)  FIND_POS(zsu)
 #undef FIND_POS
-    // Special rules: if x not reported but xu (unwrapped), xs(scaled), xsu(scaled unwrapped)
-    // Use that in the line of succession x <-- xu <-- xs <-- xsu
+    // Special rules: ideally we want to read xu,yu,zu.
+    // However, if xu (unwrapped) not reported but x (wrapped), xs(scaled), xsu(scaled unwrapped) is reported
+    // Use that in the line of succession xu <-- x<-- xs <-- xsu (a left value has higher priority than the right,
+    // use the right value only if the left value is unavailable. )
 #define REPLACE_IF(VAR1, VAR2) if (VAR1==-1 and VAR2!=-1){VAR1=VAR2;}
-    REPLACE_IF(xs,xsu)  REPLACE_IF(xu,xs)  REPLACE_IF(x,xu)
-    REPLACE_IF(ys,ysu)  REPLACE_IF(yu,ys)  REPLACE_IF(y,yu)
-    REPLACE_IF(zs,zsu)  REPLACE_IF(zu,zs)  REPLACE_IF(z,zu)
+    // The replacement chain must work in reverse.
+    REPLACE_IF(xs,xsu)  REPLACE_IF(x,xs)  REPLACE_IF(xu,x)
+    REPLACE_IF(ys,ysu)  REPLACE_IF(y,ys)  REPLACE_IF(yu,y)
+    REPLACE_IF(zs,zsu)  REPLACE_IF(z,zs)  REPLACE_IF(zu,z)
 #undef REPLACE_IF
 }
 
-Trajectory::Trajectory(MolecularSystem &ms):ms_(ms),e(0){
-    nAtoms_ = ms.AtomsCount();
-    nFrames_ = 0;
+// TrajectoryFrame
+TrajectoryFrame::TrajectoryFrame() {
+    nAtoms_ = ts_ = 0;
+    s_ = nullptr;
+    x_ = v_ = f_ =  nullptr;
+    i_ = nullptr;
 }
-Trajectory::~Trajectory(){
-    destroyAll();
+TrajectoryFrame::~TrajectoryFrame(){
+    destroyMemory();
 }
+void TrajectoryFrame::Read(TrajFile &trajFile,int iFrameInTrajFile){
+    int startline = trajFile.startlines[iFrameInTrajFile];
+    int lineno = startline;
 
-void Trajectory::createMemoryForFrame(int iFrame,KeywordsColumnPos &kcp) {
+    // Write systemwise info
+    ts_ = trajFile.timesteps[iFrameInTrajFile];
+    nAtoms_ = stoi(trajFile.lines[lineno+3]);
+
+    // Allocate per-atom memory
+    JumpToLine(trajFile.lines,"ITEM: ATOMS",lineno,startline,startline+20);
+    KeywordsColumnPos kcp;
+    kcp.FindColumnPos(trajFile.lines[lineno]);
+
+    if(kcp.id==-1)
+        ERROR("\nTrajectory file ["+trajFile.filename+"] missing key info: id");
+    if(kcp.xu==-1 or kcp.yu==-1 or kcp.zu==-1)
+        ERROR("\nTrajectory file ["+trajFile.filename+"] missing key info: coordinates");
+
+    this->createMemory(kcp);
+    // Read every atom,
+    for(int i=0;i<nAtoms_;i++){
+        auto parts = StringSplit(trajFile.lines[++lineno]);
+        int serial = stoi(parts[kcp.id]);
+        // serial and xyz must always be present
+        s_[i] = serial;
+        x_[i][0] = stof(parts[kcp.xu]);
+        x_[i][1] = stof(parts[kcp.yu]);
+        x_[i][2] = stof(parts[kcp.zu]);
+        // The following info are not always present
+        if(kcp.vx!=-1 or kcp.vy!=-1 or kcp.vz!=-1) {
+            // if any one of vx, vy, or vz is present, the entire space for v is created.
+            v_[i][0] = stof(parts[kcp.vx]);
+            v_[i][1] = stof(parts[kcp.vy]);
+            v_[i][2] = stof(parts[kcp.vz]);
+        }
+        if(kcp.fx!=-1 or kcp.fy!=-1 or kcp.fz!=-1) {
+            // if any one of vx, vy, or vz is present, the entire space for v is created.
+            f_[i][0] = stof(parts[kcp.fx]);
+            f_[i][1] = stof(parts[kcp.fy]);
+            f_[i][2] = stof(parts[kcp.fz]);
+        }
+        if(kcp.ix!=-1 or kcp.iy!=-1 or kcp.iz!=-1) {
+            // if any one of vx, vy, or vz is present, the entire space for v is created.
+            i_[i][0] = stof(parts[kcp.ix]);
+            i_[i][1] = stof(parts[kcp.iy]);
+            i_[i][2] = stof(parts[kcp.iz]);
+        }
+    }
+    sort_atoms();
+}
+void TrajectoryFrame::createMemory(KeywordsColumnPos &kcp) {
     bool cond;
+    if(nAtoms_ == 0)
+        ERROR("nAtoms_ == 0, Can't createMemory.");
     // Unfortunately, we can't write a macro to make this function simpler.
-    cond = kcp.x<0 and kcp.y<0 and kcp.z<0;
-    vector_free_space_at_pos(x_, iFrame, nAtoms_, cond);
+    ptr_create_space(s_,nAtoms_,false); // always create this
+
+    ptr_create_space(x_,nAtoms_,false); // always create this
 
     cond = kcp.vx<0 and kcp.vy<0 and kcp.vz<0;
-    vector_free_space_at_pos(v_, iFrame, nAtoms_, cond);
+    ptr_create_space(v_,nAtoms_,cond);
 
     cond = kcp.fx<0 and kcp.fy<0 and kcp.fz<0;
-    vector_free_space_at_pos(f_, iFrame, nAtoms_, cond);
+    ptr_create_space(f_,nAtoms_,cond);
 
     cond = kcp.ix<0 and kcp.iy<0 and kcp.iz<0;
-    vector_free_space_at_pos(i_, iFrame, nAtoms_, cond);
+    ptr_create_space(i_,nAtoms_,cond);
+}
+void TrajectoryFrame::destroyMemory(){
+    ptr_destroy_space(s_);
+    ptr_destroy_space(x_);
+    ptr_destroy_space(v_);
+    ptr_destroy_space(f_);
+    ptr_destroy_space(i_);
+}
+template <class T> void sort_array(T* array, int* key_array, int length){
+    // will keep key_array unchanged.
+    if(array== nullptr)
+        return;
+    vector<pair<int,T>> vm(length);
+    for(int i=0;i<length;i++){
+        vm[i] = make_pair(key_array[i],array[i]);
+    }
+    ::sort(vm.begin(),vm.end(),[](auto &item1, auto &item2){ return item1.first < item2.first;});
+    for(int i=0;i<length;i++){
+        array[i] = vm[i].second;
+    }
+}
+void TrajectoryFrame::sort_atoms(){
+    if(nAtoms_ == 0)
+        return;
+    // sort_atoms according to serials s_[]
+    sort_array(x_,s_,nAtoms_);
+    sort_array(v_,s_,nAtoms_);
+    sort_array(f_,s_,nAtoms_);
+    sort_array(i_,s_,nAtoms_);
+    // must sort_atoms s_ itself at last.
+    ::sort(s_, s_ + nAtoms_);
+    /* Debug, show atoms */
+//    for(int i=0;i<nAtoms_;i++){
+//        cout<<i<<" "<<s_[i]<<" "<<x_[i]<<" "<<v_[i]<<endl;
+//    }
 }
 
-void Trajectory::destroyMemoryForFrame(int iFrame){
-    OPERATION_FOR_ALL_PERATOM_VECTORS(vector_create_space_at_pos, iFrame);
+//Trajector
+Trajectory::Trajectory(MolecularSystem &ms):ms_(ms),e(0){
 }
-void Trajectory::destroyAll() {
-    int nTotalFrame = this->nFrames_;
-    for(int i=nTotalFrame-1;i>=0;i--)
-        this->DiscardFrame(i);
-    my_assert_true(this->nFrames_ == 0);
+Trajectory::~Trajectory() {
+    Clear();
 }
-
 bool Trajectory::DiscardFrame(int iFrame){
-    if(iFrame<0 or iFrame>=nFrames_)
+    if(iFrame<0 or iFrame>=NFrames())
         return false;
-    destroyMemoryForFrame(iFrame);
-    OPERATION_FOR_ALL_PERATOM_VECTORS(vector_erase_at, iFrame);
-    OPERATION_FOR_ALL_SYSTEM_VECTORS(vector_erase_at, iFrame);
-    --nFrames_;
+    frames_.erase(frames_.begin()+iFrame,frames_.begin()+iFrame+1);
     return true;
 }
-
+void Trajectory::Clear() {
+    frames_.clear();
+}
 void Trajectory::read_file_step0(std::string filename) {
     // read all into cache
     ifstream ifs(filename);
@@ -144,7 +219,7 @@ void Trajectory::read_preparation_step1_find_frames_in_file(){
             trajFile.timesteps.push_back(timeStep);
             my_assert_true(StringStartsWith(trajFile.lines[lineno++], "ITEM: NUMBER OF ATOMS"));
             int nAtoms = stoi(trajFile.lines[lineno++]);
-            // no assertion for nAtoms, for now
+
             my_assert_true(StringStartsWith(trajFile.lines[lineno++], "ITEM: BOX BOUNDS"));
             lineno+=3;
             my_assert_true(StringStartsWith(trajFile.lines[lineno++], "ITEM: ATOMS"));
@@ -182,75 +257,26 @@ void Trajectory::read_preparation_step3_remove_duplication(bool removeDup) {
     // Remove duplicate frames as requested. Remove from back to front
     // Assume that duplication can occur only in different files.
     if(removeDup){
-        int oldNFrames = nFrames_;
-        my_assert_true(oldNFrames==ts_.size());
+        int oldNFrames = NFrames();
         int deletedFrames = 0;
         for(int i=oldNFrames-1;i>=0;i--){
             bool dup = false;
             for(int j=0;j<trajFile.timesteps.size();j++){
-                if(ts_[i] == trajFile.timesteps[j]){
+                if(frames_[i].ts_ == trajFile.timesteps[j]){
                     dup = true;
                     break;
                 }
             }
             ostringstream oss;
-            oss<<"Data for timestep "<<ts_[i]<<" appears again in ["<<trajFile.filename<<"]. Old data for this timestep is removed.";
+            oss<<"Data for timestep "<<frames_[i].ts_<<" appears again in ["<<trajFile.filename<<"]. Old data for this old frame will be removed.";
             WARNING(oss.str());
             this->DiscardFrame(i);
             deletedFrames++;
-            my_assert_true(nFrames_ + deletedFrames==oldNFrames);
+            my_assert_true(NFrames()+deletedFrames==oldNFrames);
         }
     }
 }
 
-void Trajectory::read_one_frame(int iFrame,int iFrameInTrajFile){
-    int startline = trajFile.startlines[iFrameInTrajFile];
-    int lineno = startline;
-    int nAtoms = stoi(trajFile.lines[lineno+3]);
-
-    // Write systemwise info
-    ts_[iFrame] = trajFile.timesteps[iFrameInTrajFile];
-
-    // Allocate per-atom memory
-    while(not StringRegexMatch(trajFile.lines[++lineno], "ITEM: ATOMS"));
-    KeywordsColumnPos kcp;
-    kcp.FindColumnPos(trajFile.lines[lineno]);
-
-    if(kcp.id==-1)
-        ERROR("\nTrajectory file ["+trajFile.filename+"] missing key info: id");
-    if(kcp.x==-1 or kcp.y==-1 or kcp.z==-1)
-        ERROR("\nTrajectory file ["+trajFile.filename+"] missing key info: coordinates");
-
-    this->createMemoryForFrame(iFrame,kcp);
-    // Read every atom,
-    for(int i=0;i<nAtoms;i++){
-        auto parts = StringSplit(trajFile.lines[++lineno]);
-        int index = stoi(parts[kcp.id])-1;
-        this->x_[iFrame][index][0] = stof(parts[kcp.x]);
-        this->x_[iFrame][index][1] = stof(parts[kcp.y]);
-        this->x_[iFrame][index][2] = stof(parts[kcp.z]);
-        // The following info are not always present
-        if(kcp.vx!=-1 or kcp.vy!=-1 or kcp.vz!=-1) {
-            // if any one of vx, vy, or vz is present, the entire space for v is created.
-            this->v_[iFrame][index][0] = stof(parts[kcp.vx]);
-            this->v_[iFrame][index][1] = stof(parts[kcp.vy]);
-            this->v_[iFrame][index][2] = stof(parts[kcp.vz]);
-        }
-        if(kcp.fx!=-1 or kcp.fy!=-1 or kcp.fz!=-1) {
-            // if any one of vx, vy, or vz is present, the entire space for v is created.
-            this->f_[iFrame][index][0] = stof(parts[kcp.fx]);
-            this->f_[iFrame][index][1] = stof(parts[kcp.fy]);
-            this->f_[iFrame][index][2] = stof(parts[kcp.fz]);
-        }
-        if(kcp.ix!=-1 or kcp.iy!=-1 or kcp.iz!=-1) {
-            // if any one of vx, vy, or vz is present, the entire space for v is created.
-            this->i_[iFrame][index][0] = stof(parts[kcp.ix]);
-            this->i_[iFrame][index][1] = stof(parts[kcp.iy]);
-            this->i_[iFrame][index][2] = stof(parts[kcp.iz]);
-        }
-    }
-
-}
 
 int Trajectory::Read(string filename, int max_workers, int maxFrames, bool removeDup, set<int> certainFrames){
     read_file_step0(filename);
@@ -260,74 +286,75 @@ int Trajectory::Read(string filename, int max_workers, int maxFrames, bool remov
 
     // Now resize all vectors: Note that the expanded vectors are not initialized until
     // the moment each frame is read in.
-    int oldNFrames = nFrames_;
-    nFrames_ += trajFile.timesteps.size();
-    OPERATION_FOR_ALL_SYSTEM_VECTORS(vector_resize,nFrames_);
-    OPERATION_FOR_ALL_PERATOM_VECTORS(vector_resize,nFrames_);
+    int oldNFrames = NFrames();
+    int newNFrames = oldNFrames + trajFile.timesteps.size();
 
-    for(int i=oldNFrames;i<nFrames_;i++){
-        read_one_frame(oldNFrames+i, i);
+    frames_.resize(newNFrames);
+
+    for(int i=0;i<trajFile.timesteps.size();i++){
+        frames_[oldNFrames+i].Read(trajFile,i);
     }
     return 0;
 }
 
 
-void Trajectory::_thread_main_(int iThread,int iFrameStart, int iFrameEnd,promise<bool> ret) {
-
+void Trajectory::_thread_main_(int iThread,int iFrameStart, int iFrameEnd, int NAtoms) {
     uniform_int_distribution<int> uid(10,50);
-
     for(int iFrame=iFrameStart;iFrame<iFrameEnd;iFrame++){
         /* Each Thread work independently, no need to add lock? */
         KeywordsColumnPos kcp;
         kcp.x = 0;
-        createMemoryForFrame(iFrame,kcp);
-        for(int iAtom=0;iAtom<nAtoms_;iAtom++){
-            x_[iFrame][iAtom] = {double(iFrame),double(iAtom),double(iFrame)*iAtom};
+        auto &frame = frames_[iFrame];
+        frame.nAtoms_ = NAtoms;
+        frame.createMemory(kcp);
+        for(int iAtom=0;iAtom<NAtoms;iAtom++){
+            frame.x_[iAtom] = {double(iFrame),double(iAtom),double(iFrame)*iAtom};
         }
     }
     this_thread::sleep_for(chrono::milliseconds(uid(e))); // sleep for a random time
-    ret.set_value(true);
 }
 
 
+bool double_equal(double a,double b){
+    return fabs(a-b)<MY_SMALL;
+}
 void Trajectory::_testMultiThread() {
-    nAtoms_ = 114514;
-    nFrames_ = 1231;
+    int NAtoms = 114514;
+    int NFrames = 964;
     int nThreads = 8;
 
-    OPERATION_FOR_ALL_SYSTEM_VECTORS(vector_resize,nFrames_);
-    OPERATION_FOR_ALL_PERATOM_VECTORS(vector_resize,nFrames_);
+    frames_.resize(NFrames);
 
-    nThreads = min(8,nFrames_);
-    int framesEachThread = nFrames_/nThreads;
+    nThreads = min(8,NFrames);
+    int framesEachThread = NFrames/nThreads;
 
-    vector<future<bool>> rets;
+    vector<thread> th_;
     for(int iThread=0;iThread<nThreads;iThread++){
         int start = iThread*framesEachThread;
-        int end = (iThread==nThreads-1? nFrames_ : (iThread+1)*framesEachThread);
-        promise<bool> ret_state;
-        rets.push_back(ret_state.get_future());
-        thread th(&Trajectory::_thread_main_,this,iThread,start,end,move(ret_state));
-        th.detach();
+        int end = (iThread==nThreads-1? NFrames : (iThread+1)*framesEachThread);
+        th_.push_back(thread(&Trajectory::_thread_main_,this,iThread,start,end,NAtoms));
+        //th_[th_.size()-1].detach();
         //(iThread,start,end);
         cout<<"Thread "<<iThread<<" started"<<endl;
-
     }
 
     for(int iThread=0;iThread<nThreads;iThread++){
-        bool state = rets[iThread].get();
-        cout<<"Thread "<<iThread<<" ended : "<<state<<endl;
+        th_[iThread].join();
+        cout<<"Thread "<<iThread<<" ended : "<<endl;
     }
 
     // check consistency
 
-    for(int iFrame=0;iFrame<nFrames_;iFrame++){
-        for(int iAtom=0;iAtom<nAtoms_;iAtom++){
-            MY_ASSERT_DOUBLE_EQUAL(x_[iFrame][iAtom][0], iFrame);
-            MY_ASSERT_DOUBLE_EQUAL(x_[iFrame][iAtom][1], iAtom);
-            MY_ASSERT_DOUBLE_EQUAL(x_[iFrame][iAtom][2], double(iFrame)*iAtom);
+    for(int iFrame=0;iFrame<NFrames;iFrame++){
+        for(int iAtom=0;iAtom<NAtoms;iAtom++){
+#define MY_ASSERT_DOUBLE_EQUAL(a,b) if(not double_equal((a),(b))){cout<<iFrame<<" "<<iAtom<<" "<<(a)<<" "<<(b)<<endl;}
+            MY_ASSERT_DOUBLE_EQUAL(frames_[iFrame].x_[iAtom][0], iFrame);
+            MY_ASSERT_DOUBLE_EQUAL(frames_[iFrame].x_[iAtom][1], iAtom);
+            MY_ASSERT_DOUBLE_EQUAL(frames_[iFrame].x_[iAtom][2], double(iFrame)*iAtom);
+#undef MY_ASSERT_DOUBLE_EQUAL
         }
-        ProgressBar(double(iFrame)/nFrames_);
+        if(nThreads==1)
+            ProgressBar(double(iFrame)/iFrame);
     }
     ProgressBar(1.0);
 }
