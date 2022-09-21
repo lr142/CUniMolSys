@@ -4,6 +4,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <algorithm>
 using namespace std;
 
 /* Can only understand LAMMPS data file in the "full" atom style
@@ -59,13 +60,13 @@ bool LAMMPSDataFile::Read(MolecularSystem &ms, string filename){
     try {
         // For format of LAMMPS file, especially the header, are not always regular.
         // But the info we look for should always appear within the first 50 lines.
-        if(JumpToLine(lines,"[0-9]+ atoms",lineno,0,50))
+        if(JumpToLine(lines,"atoms",lineno,0,50))
             nAtoms = stoi(StringSplit(lines[lineno])[0]);
-        if(JumpToLine(lines,"[0-9]+ bonds",lineno,0,50))
+        if(JumpToLine(lines,"bonds",lineno,0,50))
             nBonds = stoi(StringSplit(lines[lineno])[0]);
-        if(JumpToLine(lines,"[0-9]+ atom types",lineno,0,50))
+        if(JumpToLine(lines,"atom types",lineno,0,50))
             nAtomTypes = stoi(StringSplit(lines[lineno])[0]);
-        if(JumpToLine(lines,"[0-9]+ bond types",lineno,0,50))
+        if(JumpToLine(lines,"bond types",lineno,0,50))
             nBondTypes = stoi(StringSplit(lines[lineno])[0]);
 
         //Read boundary
@@ -115,7 +116,13 @@ bool LAMMPSDataFile::Read(MolecularSystem &ms, string filename){
              [](auto &a1, auto &a2) {
                     return stoi(a1->globalSerial)<stoi(a2->globalSerial);}
              );
-        assert(nTotalAtomsCount == nAtoms); // if not true, the declared # of atoms != actual read atoms.
+        if(nTotalAtomsCount != nAtoms) { // if not true, the declared # of atoms != actual read atoms.
+            ostringstream oss;
+            oss << "\nAcutally read atoms (" << nTotalAtomsCount << ") does match declared atom count (" << nAtoms
+                << ")";
+            output(oss.str());
+            throw exception();
+        }
         vector<int> map_for_reconstructing(nTotalAtomsCount); // needed for MolSysReorganize() to redistribute atoms into multiple mols;
         for(auto &item:atomSerialToMolSerialMap){
             int atomIndex = stoi(item.first)-1;

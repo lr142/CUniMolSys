@@ -24,9 +24,10 @@ TEST(KeywordsColumnPos,DISABLED_t1){
     kcp.FindColumnPos("ITEM: ATOMS id mol type x y z vx vy vz");
 }
 
-TEST(multithread,DISABLED_t2){
-    while(true)
+TEST(multithread,t2){
+    for(;;) {
         TestMultiThread();
+    }
 }
 
 TEST(Reading,DISABLED_t1){
@@ -41,8 +42,9 @@ TEST(Reading,DISABLED_t1){
     traj.Read(curPath+"water.traj");
 }
 
-TEST(Reading,t2){
+TEST(Reading,DISABLED_t2){
     MolecularSystem ms;
+    curPath = DATAFILESPATH+"/../UnitTests/008.TestTraj/";
     QuickOpen(ms,curPath+"polymer.data");
     cout<<ms.Summary()<<endl;
     Trajectory traj(ms);

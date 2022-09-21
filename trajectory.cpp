@@ -15,8 +15,14 @@ void my_assert_true(bool statement){
 template<class T> void ptr_create_space(T* &ptr, int size, bool nullptr_condition){
     if(nullptr_condition)
         ptr = nullptr;
-    else
-        ptr = new T[size];
+    else{
+        try{
+            ptr = new T[size];
+        }
+        catch(exception e){
+            ERROR("Memory Allocation Failed.");
+        }
+    }
 }
 template <class T> void ptr_destroy_space(T* &ptr){
     if(ptr != nullptr){
@@ -108,9 +114,9 @@ void TrajectoryFrame::Read(TrajFile &trajFile,int iFrameInTrajFile){
         }
         if(kcp.ix!=-1 or kcp.iy!=-1 or kcp.iz!=-1) {
             // if any one of vx, vy, or vz is present, the entire space for v is created.
-            i_[i][0] = stof(parts[kcp.ix]);
-            i_[i][1] = stof(parts[kcp.iy]);
-            i_[i][2] = stof(parts[kcp.iz]);
+            i_[i][0] = stoi(parts[kcp.ix]);
+            i_[i][1] = stoi(parts[kcp.iy]);
+            i_[i][2] = stoi(parts[kcp.iz]);
         }
     }
     sort_atoms();
@@ -301,7 +307,8 @@ int Trajectory::Read(string filename, int max_workers, int maxFrames, bool remov
 void Trajectory::_thread_main_(int iThread,int iFrameStart, int iFrameEnd, int NAtoms) {
     uniform_int_distribution<int> uid(10,50);
     for(int iFrame=iFrameStart;iFrame<iFrameEnd;iFrame++){
-        /* Each Thread work independently, no need to add lock? */
+        //cout<<"iFrame = "<<iFrame<<endl;
+        // Each Thread work independently, no need to add lock?
         KeywordsColumnPos kcp;
         kcp.x = 0;
         auto &frame = frames_[iFrame];
@@ -320,12 +327,12 @@ bool double_equal(double a,double b){
 }
 void Trajectory::_testMultiThread() {
     int NAtoms = 114514;
-    int NFrames = 964;
+    int NFrames = 2000;
     int nThreads = 8;
 
     frames_.resize(NFrames);
 
-    nThreads = min(8,NFrames);
+    nThreads = min(8,nThreads);
     int framesEachThread = NFrames/nThreads;
 
     vector<thread> th_;
@@ -343,6 +350,7 @@ void Trajectory::_testMultiThread() {
         cout<<"Thread "<<iThread<<" ended : "<<endl;
     }
 
+    //return;
     // check consistency
 
     for(int iFrame=0;iFrame<NFrames;iFrame++){
@@ -354,7 +362,8 @@ void Trajectory::_testMultiThread() {
 #undef MY_ASSERT_DOUBLE_EQUAL
         }
         if(nThreads==1)
-            ProgressBar(double(iFrame)/iFrame);
+            ProgressBar(double(iFrame)/NFrames);
     }
-    ProgressBar(1.0);
+
+    Clear();
 }
