@@ -1,9 +1,11 @@
 #include "trajectory.h"
 #include "opener.h"
+#include "molecularmanipulator.h"
 #include <future>
 #include <fstream>
 #include <string>
 #include <sstream>
+#include <memory>
 using namespace std;
 
 // Auxiliary functions used in this module
@@ -70,6 +72,7 @@ TrajectoryFrame::TrajectoryFrame() {
 }
 TrajectoryFrame::~TrajectoryFrame(){
     destroyMemory();
+    //output("Frame with ts = "+to_string(this->ts_)+" destoryed.");
 }
 void TrajectoryFrame::Read(TrajFile &trajFile,int iFrameInTrajFile){
     int startline = trajFile.startlines[iFrameInTrajFile];
@@ -96,6 +99,12 @@ void TrajectoryFrame::Read(TrajFile &trajFile,int iFrameInTrajFile){
         int serial = stoi(parts[kcp.id]);
         // serial and xyz must always be present
         s_[i] = serial;
+        if(s_[i] < 1){
+            ostringstream oss;
+            oss<<"\nTrajectory file ["<<trajFile.filename<<" @ line "<<lineno+1<<"\n"
+            <<trajFile.lines[lineno]<<"\n"<<"atom id can't be < 1";
+            ERROR(oss.str());
+        }
         x_[i][0] = stof(parts[kcp.xu]);
         x_[i][1] = stof(parts[kcp.yu]);
         x_[i][2] = stof(parts[kcp.zu]);
@@ -199,7 +208,7 @@ void Trajectory::read_file_step0(std::string filename) {
     string line;
     this->trajFile.filename = filename;
     this->trajFile.lines.clear();
-    output("Reading ["+filename+"]...");
+    output("Reading ["+filename+"] into memory ...");
     auto start = chrono::system_clock::now();
     while(getline(ifs,line)){
         trajFile.lines.push_back(line);
@@ -210,7 +219,7 @@ void Trajectory::read_file_step0(std::string filename) {
     auto end = chrono::system_clock::now();
     auto duration = chrono::duration_cast<chrono::milliseconds>(end-start);
     ostringstream oss;
-    oss<<"Done in "<<duration.count()/1000.0<<" seconds."<<endl;
+    oss<<"Done in "<<duration.count()/1000.0<<" seconds.";
     output(oss.str());
 }
 void Trajectory::read_preparation_step1_find_frames_in_file(){
@@ -268,21 +277,23 @@ void Trajectory::read_preparation_step3_remove_duplication(bool removeDup) {
         for(int i=oldNFrames-1;i>=0;i--){
             bool dup = false;
             for(int j=0;j<trajFile.timesteps.size();j++){
-                if(frames_[i].ts_ == trajFile.timesteps[j]){
+                if(frames_[i]->ts_ == trajFile.timesteps[j]){
                     dup = true;
                     break;
                 }
             }
-            ostringstream oss;
-            oss<<"Data for timestep "<<frames_[i].ts_<<" appears again in ["<<trajFile.filename<<"]. Old data for this old frame will be removed.";
-            WARNING(oss.str());
-            this->DiscardFrame(i);
-            deletedFrames++;
+            if(dup) {
+                ostringstream oss;
+                oss << "Data for timestep " << frames_[i]->ts_ << " appears again in [" << trajFile.filename
+                    << "]. Old data for this frame will be removed.";
+                WARNING(oss.str());
+                this->DiscardFrame(i);
+                deletedFrames++;
+            }
             my_assert_true(NFrames()+deletedFrames==oldNFrames);
         }
     }
 }
-
 
 int Trajectory::Read(string filename, int max_workers, int maxFrames, bool removeDup, set<int> certainFrames){
     read_file_step0(filename);
@@ -295,14 +306,89 @@ int Trajectory::Read(string filename, int max_workers, int maxFrames, bool remov
     int oldNFrames = NFrames();
     int newNFrames = oldNFrames + trajFile.timesteps.size();
 
-    frames_.resize(newNFrames);
+    frames_.resize(newNFrames); // Don't do this !!
 
+    output("Processing "+to_string(trajFile.timesteps.size())+" new frames..");
+    auto start = chrono::system_clock::now();
     for(int i=0;i<trajFile.timesteps.size();i++){
-        frames_[oldNFrames+i].Read(trajFile,i);
+        auto p = make_shared<TrajectoryFrame>();
+        frames_[oldNFrames+i] = p;
+        p->Read(trajFile,i);
+        if(max_workers<=1)
+            ProgressBar(1.0*(i+1)/trajFile.timesteps.size());
     }
+    auto end = chrono::system_clock::now();
+    auto duration = chrono::duration_cast<chrono::milliseconds>(end-start);
+    output("Done in "+ to_string(duration.count()/1000.0)+" seconds.");
     return 0;
 }
 
+shared_ptr<MolecularSystem> Trajectory::UpdateCoordsAtFrame(int iFrame, bool only_in_traj){
+    ostringstream err_msg;
+    if(iFrame<0 or iFrame>NFrames()){
+        err_msg << "iFrame = " << iFrame << " out of range (1~" << NFrames() << ")";
+        ERROR(err_msg.str());
+    }
+    TrajectoryFrame& f = (*this)[iFrame];
+
+    // Find out what atoms are in the frame
+    MolecularSystemAccessor msa_(ms_);
+    vector<int> ms_to_traj_index_map(msa_.AtomsCount(),-1);
+    for(int i=0;i<f.nAtoms_;i++){
+        int index = f.s_[i] - 1; // serial to index
+        /* !!!!!! If running a GCMC, possible that [index > atoms in the system]. Leave it now, just throw a exception */
+        if(index<0 or index>=msa_.AtomsCount()){
+            err_msg<<"Atom index read in trajectory file ("<<index<<") <0 or >= nAtoms in system ("<<msa_.AtomsCount()<<")."<<endl;
+            err_msg<<"Reading GCMC trajectory is not yet implemented, sorry!";
+            ERROR(err_msg.str());
+        }
+        // "i" is the index in trajectory, "index" is the index in original molsys;
+        ms_to_traj_index_map[index] = i;
+    }
+
+    shared_ptr<MolecularSystem> pMS;
+    if(only_in_traj){
+        vector<bool> mask = vector<bool>(msa_.AtomsCount(),false);
+        for(int i=0;i<msa_.AtomsCount();i++){
+            if(ms_to_traj_index_map[i]>=0)
+                mask[i] = true;
+        }
+        MolecularSystem copy = ms_.DeepCopy();
+        MolSysSubsystemByMask(copy,mask);
+        //Update coords. Atoms in pMS and in trajectory should have exactly the same atom order
+        int iCounter = 0;
+        for(int i=0;i<copy.MoleculesCount();i++){
+            for(int j=0;j<copy[i].AtomsCount();j++){
+                copy[i][j].xyz = f.x_[iCounter++];
+            }
+        }
+        pMS = std::make_shared<MolecularSystem>(copy);
+    }else{
+        MolecularSystem copy = ms_.DeepCopy();
+        int index = 0;
+        for(int i=0;i<copy.MoleculesCount();i++){
+            for(int j=0;j<copy[i].AtomsCount();j++){
+                int indexInTraj = ms_to_traj_index_map[index];
+                if(indexInTraj != -1)
+                    copy[i][j].xyz = f.x_[indexInTraj];
+                ++index;
+            }
+        }
+    }
+    return pMS;
+}
+
+void Trajectory::ShowTrajectory(std::string filename,bool showOriginal) {
+    shared_ptr<MolecularSystem> pCopy;
+    MolecularSystem entire;
+    for(int i=0;i<NFrames();i++){
+        pCopy = UpdateCoordsAtFrame(i,!showOriginal);
+        MolSysReduceToSingleMolecule(*pCopy);
+        entire.AddMolecule((*pCopy)[0]);
+        cout<<"Frame "<<i<<endl;
+    }
+    QuickSave(entire,filename);
+}
 
 void Trajectory::_thread_main_(int iThread,int iFrameStart, int iFrameEnd, int NAtoms) {
     uniform_int_distribution<int> uid(10,50);
@@ -311,7 +397,7 @@ void Trajectory::_thread_main_(int iThread,int iFrameStart, int iFrameEnd, int N
         // Each Thread work independently, no need to add lock?
         KeywordsColumnPos kcp;
         kcp.x = 0;
-        auto &frame = frames_[iFrame];
+        auto &frame = (*this)[iFrame];
         frame.nAtoms_ = NAtoms;
         frame.createMemory(kcp);
         for(int iAtom=0;iAtom<NAtoms;iAtom++){
@@ -356,9 +442,9 @@ void Trajectory::_testMultiThread() {
     for(int iFrame=0;iFrame<NFrames;iFrame++){
         for(int iAtom=0;iAtom<NAtoms;iAtom++){
 #define MY_ASSERT_DOUBLE_EQUAL(a,b) if(not double_equal((a),(b))){cout<<iFrame<<" "<<iAtom<<" "<<(a)<<" "<<(b)<<endl;}
-            MY_ASSERT_DOUBLE_EQUAL(frames_[iFrame].x_[iAtom][0], iFrame);
-            MY_ASSERT_DOUBLE_EQUAL(frames_[iFrame].x_[iAtom][1], iAtom);
-            MY_ASSERT_DOUBLE_EQUAL(frames_[iFrame].x_[iAtom][2], double(iFrame)*iAtom);
+            MY_ASSERT_DOUBLE_EQUAL((*this)[iFrame].x_[iAtom][0], iFrame);
+            MY_ASSERT_DOUBLE_EQUAL((*this)[iFrame].x_[iAtom][1], iAtom);
+            MY_ASSERT_DOUBLE_EQUAL((*this)[iFrame].x_[iAtom][2], double(iFrame)*iAtom);
 #undef MY_ASSERT_DOUBLE_EQUAL
         }
         if(nThreads==1)

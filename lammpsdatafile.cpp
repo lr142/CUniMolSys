@@ -135,9 +135,9 @@ bool LAMMPSDataFile::Read(MolecularSystem &ms, string filename){
         // Now we read the bonds. Before that, let's renumber atoms ans make a MolecularAccessor
         ms.RenumberAtomSerials();
         MolecularSystemAccessor msa(ms);
-        JumpToLine(lines,"Atoms",lineno,0,lines.size());
+        JumpToLine(lines,"Bonds",lineno,0,lines.size());
         lineno+=2;
-        while(StringRegexMatch(lines[lineno],"[0-9]+ [0-9]+")){
+        while(StringRegexMatch(lines[lineno],"[0-9]+[\\s]+[0-9]+")){
             Bond b;
             string tmp;
             istringstream iss(lines[lineno]);

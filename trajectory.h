@@ -51,15 +51,11 @@ class TrajectoryFrame{
 public:
     TrajectoryFrame();
     ~TrajectoryFrame();
+    TrajectoryFrame(const TrajectoryFrame& tra) = delete; // prevent accidental copy
+    TrajectoryFrame& operator=(const TrajectoryFrame& tra) = delete;
     void Read(TrajFile &trajFile,int iFrameInTrajFile);
-    friend class Trajectory;
-protected:
-    void createMemory(KeywordsColumnPos &kcp);
-    void destroyMemory();
-    void sort_atoms();
-
     /* number of atoms in this frame. This number may be smaller (if user dump a specific group instead of all)
-     * or larger (when running GCMC) then number of atoms in the system. */
+ * or larger (when running GCMC) then number of atoms in the system. */
     int nAtoms_;
     int ts_; // timestep of this frame.
     /* */
@@ -68,6 +64,13 @@ protected:
     XYZ* v_; // velocities
     XYZ* f_; // forces;
     XYZ_T_<int>* i_; // periodic image flags (ix,iy,iz in LAMMPS).
+    friend class Trajectory;
+protected:
+    void createMemory(KeywordsColumnPos &kcp);
+    void destroyMemory();
+    void sort_atoms();
+
+
 
 
 };
@@ -99,13 +102,22 @@ public:
              bool removeDup=true, std::set<int> certainFrames=set<int>());
     /* Discard a specific frame */
     bool DiscardFrame(int iFrame);
-    /* Discard all frames, release the mem, and get ready to another trajctory file */
+    /* Discard all frames, release the memory, and get ready to another trajctory file */
     void Clear();
     inline int NFrames() {return frames_.size();}
+
+    /* Returns a copy of the molsys at iFrame with all coordinates updated to this frame.
+     * Atoms not involved in the trajectory will keep their original coords. If only_in_traj
+     * is true, only those atoms reported in the trajectory will be reported */
+    shared_ptr<MolecularSystem> UpdateCoordsAtFrame(int iFrame, bool only_in_traj=false);
+    void ShowTrajectory(string filename, bool showOriginal=true);
+    inline TrajectoryFrame & operator[](int i) {return *(frames_[i]);}
 protected:
     MolecularSystem &ms_;
-    vector<TrajectoryFrame> frames_;
 
+    /* all frames. Tried to implement this as vector<TrajectoryFrame>. But as I tried to resize it, the previous frames
+     * are haveing memeory issues (previously allocated memory lost). */
+    vector<shared_ptr<TrajectoryFrame>> frames_;
     /* read file contents into trajFile */
     void read_file_step0(string filename);
     /* Given that all lines of a lammpstrj file is read into this->trajFile, this function

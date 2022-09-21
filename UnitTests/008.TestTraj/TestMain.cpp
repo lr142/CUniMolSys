@@ -24,7 +24,7 @@ TEST(KeywordsColumnPos,DISABLED_t1){
     kcp.FindColumnPos("ITEM: ATOMS id mol type x y z vx vy vz");
 }
 
-TEST(multithread,t2){
+TEST(multithread,DISABLED_t2){
     for(;;) {
         TestMultiThread();
     }
@@ -47,11 +47,49 @@ TEST(Reading,DISABLED_t2){
     curPath = DATAFILESPATH+"/../UnitTests/008.TestTraj/";
     QuickOpen(ms,curPath+"polymer.data");
     cout<<ms.Summary()<<endl;
-    Trajectory traj(ms);
-//    set<int> certainFrames;
-//    for(int i=4;i<250;i+=3){
-//        certainFrames.insert(i*10000);
-//    }
-    traj.Read(curPath+"polymer.traj");
+    if(false){
+        MolecularSystem copy = ms.DeepCopy();
+        MolSysReduceToSingleMolecule(copy);
+        QuickSave(copy, DATAFILESPATH + "/../dump.mol2");
+        exit(0);
+    }
+    {
+        Trajectory traj(ms);
+//            set<int> certainFrames;
+//            for(int i=4;i<250;i+=3){
+//                certainFrames.insert(i*10000);
+//            }
+        for(int i=0;i<10;i++) {
+            traj.Read(curPath + "polymer.traj");
+            //traj.ShowTrajectory(DATAFILESPATH+"/../dump.mol2",false);
+        }
+    }
+}
+
+
+TEST(Reading,largeSys){
+    MolecularSystem ms;
+    curPath = DATAFILESPATH+"/../UnitTests/008.TestTraj/";
+    QuickOpen(ms,curPath+"polymer.data");
+    cout<<ms.Summary()<<endl;
+    if(false){
+        MolecularSystem copy = ms.DeepCopy();
+        MolSysReduceToSingleMolecule(copy);
+        QuickSave(copy, DATAFILESPATH + "/../dump.mol2");
+        exit(0);
+    }
+    {
+        Trajectory traj(ms);
+        set<int> certainFrames;
+//        for(int i=0;i<6000000;i+=100000){
+//            certainFrames.insert(i);
+//        }
+        traj.Read(curPath + "system.lammpstrj",-1,MY_LARGE,true,certainFrames);
+        traj.Read(curPath + "system.lammpstrj.2",-1,MY_LARGE,true,certainFrames);
+        for(int i=0;i<traj.NFrames();i++){
+            cout<<"Frame = "<<i<<", ts = "<<traj[i].ts_<<", NAtoms = "<<traj[i].nAtoms_<<endl;
+        }
+//        traj.ShowTrajectory(DATAFILESPATH+"/../dump.mol2",false);
+    }
 }
 
