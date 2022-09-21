@@ -139,6 +139,7 @@ private:
     T xyz[3];
 };
 
+
 // Seems like template class must be implemented in .h files. This is quite ugly but seems no other way...
 template<class T> XYZ_T_<T>::XYZ_T_():xyz{0, 0, 0}{}
 template<class T> XYZ_T_<T>::XYZ_T_(T x, T y, T z):xyz{x, y, z}{}

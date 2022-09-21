@@ -84,8 +84,8 @@ TEST(Reading,largeSys){
 //        for(int i=0;i<6000000;i+=100000){
 //            certainFrames.insert(i);
 //        }
-        traj.Read(curPath + "system.lammpstrj",-1,MY_LARGE,true,certainFrames);
-        traj.Read(curPath + "system.lammpstrj.2",-1,MY_LARGE,true,certainFrames);
+        traj.Read(curPath + "system.lammpstrj",4,MY_LARGE,true,certainFrames);
+        //traj.Read(curPath + "system.lammpstrj.2",8,MY_LARGE,true,certainFrames);
         for(int i=0;i<traj.NFrames();i++){
             cout<<"Frame = "<<i<<", ts = "<<traj[i].ts_<<", NAtoms = "<<traj[i].nAtoms_<<endl;
         }

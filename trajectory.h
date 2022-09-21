@@ -53,7 +53,9 @@ public:
     ~TrajectoryFrame();
     TrajectoryFrame(const TrajectoryFrame& tra) = delete; // prevent accidental copy
     TrajectoryFrame& operator=(const TrajectoryFrame& tra) = delete;
-    void Read(TrajFile &trajFile,int iFrameInTrajFile);
+    /* Read a frame from the file. the index of frame in the file is iFrameInTrajFile. if createMemory is true, the
+     * function will create memory itself based on the read atoms. If not, the memory is already ready. */
+    void Read(TrajFile &trajFile, int iFrameInTrajFile, bool createMemory=true);
     /* number of atoms in this frame. This number may be smaller (if user dump a specific group instead of all)
  * or larger (when running GCMC) then number of atoms in the system. */
     int nAtoms_;
@@ -135,6 +137,15 @@ protected:
 
     TrajFile trajFile;
     std::default_random_engine e;
+
+    void __test_thread_main__(int iThread,int &iFrame,int nFrames, int nAtoms);
+
+
+    void __read_frame_thread_main_(int iThread,int &iFrame,int oldNFrames);
+
+    void __read_frame_thread_main_method2_(int iThread,int NThreads,int oldNFrames);
+
+    std::mutex mux;
 };
 
 
