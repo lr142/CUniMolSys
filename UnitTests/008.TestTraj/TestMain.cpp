@@ -59,9 +59,9 @@ TEST(Reading,DISABLED_t2){
 //            for(int i=4;i<250;i+=3){
 //                certainFrames.insert(i*10000);
 //            }
-        for(int i=0;i<10;i++) {
+        for(int i=0;i<1;i++) {
             traj.Read(curPath + "polymer.traj");
-            //traj.ShowTrajectory(DATAFILESPATH+"/../dump.mol2",false);
+            traj.ShowTrajectory(DATAFILESPATH+"/../dump.mol2",false);
         }
     }
 }
@@ -84,8 +84,8 @@ TEST(Reading,largeSys){
 //        for(int i=0;i<6000000;i+=100000){
 //            certainFrames.insert(i);
 //        }
-        //traj.Read(curPath + "system.lammpstrj",4,MY_LARGE,true,certainFrames);
-        traj.Read(curPath + "system.lammpstrj.2",2,MY_LARGE,true,certainFrames);
+        traj.Read(curPath + "system.lammpstrj");
+        //raj.Read(curPath + "system.lammpstrj.2");
         for(int i=0;i<traj.NFrames();i++){
             cout<<"Frame = "<<i<<", ts = "<<traj[i].ts_<<", NAtoms = "<<traj[i].nAtoms_<<endl;
         }

@@ -85,6 +85,8 @@ static ErrorHandler error;
 // Two macros to quickly output error/warning messages
 #define ERROR(msg) error((msg),__FILE__,__LINE__,true)
 #define WARNING(msg) error((msg),__FILE__,__LINE__,false)
+#define ERROR_IF_TRUE(cond) if(cond){error((""),__FILE__,__LINE__,true);}
+#define ERROR_IF_FALSE(cond) if(!(cond)){error((""),__FILE__,__LINE__,true);}
 
 static OutputHandler output;
 

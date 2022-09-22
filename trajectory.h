@@ -7,17 +7,25 @@
 #include <random>
 #include <set>
 #include <deque>
+#include <memory>
+using std::vector;
+using std::shared_ptr;
 
 /* The contents and structure of a specific LAMMPS trajectory file */
-struct TrajFile{
+class TrajFile{
+public:
     TrajFile() = default;
     ~TrajFile() = default;
     TrajFile(const TrajFile &other) = delete; // Prevent accidentally copied this huge object.
     TrajFile& operator=(const TrajFile &other) = delete;
-    std::vector<string> lines; // All lines in the line. This is a huge data structure.
+    /* All lines in the line.lines for each frame are stored in a vector<string>, and different frames are stored
+     * as a vector of shared_ptr of vector<string>. I tried to store all lines in a huge vector<string> but will have
+     * memory fail on PC */
+    int NFrames();
+    vector<shared_ptr<vector<string>>> lines;
     string filename;
     vector<int> timesteps; // timestep of each frame; size of this vector is # of frames in file.
-    vector<int> startlines; // start line no of each frame, for quick access.
+    //vector<int> startlines; // start line no of each frame, for quick access.
     vector<int> nAtoms; // number of atoms of each frame in this file.
 };
 struct KeywordsColumnPos{
@@ -106,7 +114,7 @@ public:
     bool DiscardFrame(int iFrame);
     /* Discard all frames, release the memory, and get ready to another trajctory file */
     void Clear();
-    inline int NFrames() {return frames_.size();}
+    int NFrames();
 
     /* Returns a copy of the molsys at iFrame with all coordinates updated to this frame.
      * Atoms not involved in the trajectory will keep their original coords. If only_in_traj
@@ -120,13 +128,12 @@ protected:
     /* all frames. Tried to implement this as vector<TrajectoryFrame>. But as I tried to resize it, the previous frames
      * are haveing memeory issues (previously allocated memory lost). */
     vector<shared_ptr<TrajectoryFrame>> frames_;
-    /* read file contents into trajFile */
-    void read_file_step0(string filename);
-    /* Given that all lines of a lammpstrj file is read into this->trajFile, this function
+
+    /* Read all lines of a lammpstrj file into this->trajFile.
      * skims the contents of the file and find out how many frames are there and
      * what are the timesteps (trajFile.timesteps) and starting line numbers (trajFile.startlines) of each frame.
      * This function */
-    void read_preparation_step1_find_frames_in_file();
+    void read_preparation_step1_find_frames_in_file(string filename);
     /* Based on the given maxFrames and/or certainFrames parameters, determine which frames will be actually read.
      * This function will modify (trajFile.timesteps) and (trajFile.startlines) to reflect the result */
     void read_preparation_step2_find_actually_read_frames(int maxFrames, set<int> &certainFrames);

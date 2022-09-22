@@ -9,10 +9,6 @@
 using namespace std;
 
 // Auxiliary functions used in this module
-void my_assert_true(bool statement){
-    if(not (statement))
-        throw exception();
-}
 
 template<class T> void ptr_create_space(T* &ptr, int size, bool nullptr_condition){
     if(nullptr_condition)
@@ -31,6 +27,12 @@ template <class T> void ptr_destroy_space(T* &ptr){
         delete [] ptr;
         ptr = nullptr;
     }
+}
+
+int TrajFile::NFrames(){
+    ERROR_IF_FALSE(timesteps.size() == lines.size())
+    ERROR_IF_FALSE(timesteps.size() == nAtoms.size())
+    return timesteps.size();
 }
 
 void KeywordsColumnPos::FindColumnPos(string line) {
@@ -75,18 +77,18 @@ TrajectoryFrame::~TrajectoryFrame(){
     //output("Frame with ts = "+to_string(this->ts_)+" destoryed.");
 }
 void TrajectoryFrame::Read(TrajFile &trajFile, int iFrameInTrajFile, bool createMemory) {
-    int startline = trajFile.startlines[iFrameInTrajFile];
-    int lineno = startline;
+    int lineno = 0;
+    vector<string> &lines = *trajFile.lines[iFrameInTrajFile];
 
     // Write systemwise info
     ts_ = trajFile.timesteps[iFrameInTrajFile];
-    nAtoms_ = stoi(trajFile.lines[lineno+3]);
+    nAtoms_ = stoi(lines[3]);
 
     // Allocate per-atom memory
 
-    JumpToLine(trajFile.lines,"ITEM: ATOMS",lineno,startline,startline+20);
+    JumpToLine(lines,"ITEM: ATOMS",lineno,0,20);
     KeywordsColumnPos kcp;
-    kcp.FindColumnPos(trajFile.lines[lineno]);
+    kcp.FindColumnPos(lines[lineno]);
 
     if(kcp.id==-1)
         ERROR("\nTrajectory file ["+trajFile.filename+"] missing key info: id");
@@ -98,7 +100,7 @@ void TrajectoryFrame::Read(TrajFile &trajFile, int iFrameInTrajFile, bool create
 
     // Read every atom,
     for(int i=0;i<nAtoms_;i++){
-        auto parts = StringSplit(trajFile.lines[++lineno]);
+        auto parts = StringSplit(lines[++lineno]);
         int serial = stoi(parts[kcp.id]);
         // serial and xyz must always be present
         s_[i] = serial;
@@ -202,71 +204,77 @@ bool Trajectory::DiscardFrame(int iFrame){
 void Trajectory::Clear() {
     frames_.clear();
 }
-void Trajectory::read_file_step0(std::string filename) {
+int Trajectory::NFrames() {
+    return frames_.size();
+}
+
+void Trajectory::read_preparation_step1_find_frames_in_file(string filename){
     // read all into cache
     ifstream ifs(filename);
     if(not ifs)
         ERROR("Can't open ["+filename+"] to read.");
-    int lineno = 0;
+
     string line;
-    this->trajFile.filename = filename;
-    this->trajFile.lines.clear();
+    trajFile.filename = filename;
+    trajFile.lines.clear();
+    trajFile.timesteps.clear();
+
+
     output("Reading ["+filename+"] into memory ...");
     auto start = chrono::system_clock::now();
-    while(getline(ifs,line)){
-        trajFile.lines.push_back(line);
-        if(++lineno > MY_FILE_LINES_UPPER_BOUND)
-            ERROR("\nFile ["+filename+"] too large (>"+
-                  to_string(MY_FILE_LINES_UPPER_BOUND)+") lines, reading aborted!");
-    }
-    auto end = chrono::system_clock::now();
-    auto duration = chrono::duration_cast<chrono::milliseconds>(end-start);
-    ostringstream oss;
-    oss<<"Done in "<<duration.count()/1000.0<<" seconds.";
-    output(oss.str());
-}
-void Trajectory::read_preparation_step1_find_frames_in_file(){
-    int lineno = 0;
-    trajFile.timesteps.clear();
-    trajFile.startlines.clear();
-    try {
-        while (lineno < trajFile.lines.size()) {
-            trajFile.startlines.push_back(lineno);
-            my_assert_true(StringStartsWith(trajFile.lines[lineno++], "ITEM: TIMESTEP"));
-            int timeStep = stoi(trajFile.lines[lineno++]);
-            trajFile.timesteps.push_back(timeStep);
-            my_assert_true(StringStartsWith(trajFile.lines[lineno++], "ITEM: NUMBER OF ATOMS"));
-            int nAtoms = stoi(trajFile.lines[lineno++]);
 
-            my_assert_true(StringStartsWith(trajFile.lines[lineno++], "ITEM: BOX BOUNDS"));
-            lineno+=3;
-            my_assert_true(StringStartsWith(trajFile.lines[lineno++], "ITEM: ATOMS"));
-            lineno+=nAtoms;
+    int lineno = -1;
+    try {
+        while (getline(ifs,line)){
+            lineno++;
+            if(not StringRegexMatch(line, "ITEM: TIMESTEP"))
+                break;
+
+            trajFile.lines.push_back(make_shared<vector<string>>());
+            auto curFrame = trajFile.lines[trajFile.lines.size()-1];
+            curFrame->push_back(line);
+
+            getline(ifs,line);lineno++;curFrame->push_back(line);
+            int timeStep = stoi(line);
+            trajFile.timesteps.push_back(timeStep);
+
+            getline(ifs,line);lineno++;curFrame->push_back(line);
+            ERROR_IF_FALSE(StringRegexMatch(line, "ITEM: NUMBER OF ATOMS"));
+
+            getline(ifs,line);lineno++;curFrame->push_back(line);
+            int nAtoms = stoi(line);
+            trajFile.nAtoms.push_back(nAtoms);
+
+            for(int i=0;i<nAtoms+5;i++){
+                getline(ifs,line);lineno++;curFrame->push_back(line);
+            }
         }
     }
     catch(exception e){
         ERROR("\nWhile reading line "+to_string(lineno+1)+" of ["+trajFile.filename+
-              "]:\n\""+trajFile.lines[lineno]+"\"");
+              "]:\n\""+line+"\"");
     }
+
+    auto end = chrono::system_clock::now();
+    auto duration = chrono::duration_cast<chrono::milliseconds>(end-start);
+    ostringstream oss;
+    oss<<"Done in "<<duration.count()/1000.0<<" seconds. File contains "<<trajFile.NFrames()<<" frames.";
+    output(oss.str());
 }
 void Trajectory::read_preparation_step2_find_actually_read_frames(int maxFrames, set<int> &certainFrames){
     // the [certainFrames] parameter has higher priority
     if(not certainFrames.empty()){
-        vector<int> temp1, temp2;
-        for(int i=0;i<trajFile.timesteps.size();i++){
+        vector<int> ts;
+        for(int i=0;i<trajFile.NFrames();i++){
             if(certainFrames.contains( trajFile.timesteps[i]) ){
-                temp1.push_back(trajFile.timesteps[i]);
-                temp2.push_back(trajFile.startlines[i]);
+                ts.push_back(trajFile.timesteps[i]);
             }
         }
-        trajFile.timesteps = temp1;
-        trajFile.startlines = temp2;
+        trajFile.timesteps = ts;
     }
-    if(trajFile.timesteps.size()>maxFrames){
+    if(trajFile.NFrames()>maxFrames){
         auto &v = trajFile.timesteps;
         v.erase(v.begin()+maxFrames,v.end());
-        auto &w = trajFile.startlines;
-        w.erase(w.begin()+maxFrames,w.end());
     }
 }
 void Trajectory::read_preparation_step3_remove_duplication(bool removeDup) {
@@ -279,7 +287,7 @@ void Trajectory::read_preparation_step3_remove_duplication(bool removeDup) {
         int deletedFrames = 0;
         for(int i=oldNFrames-1;i>=0;i--){
             bool dup = false;
-            for(int j=0;j<trajFile.timesteps.size();j++){
+            for(int j=0;j<trajFile.NFrames();j++){
                 if(frames_[i]->ts_ == trajFile.timesteps[j]){
                     dup = true;
                     break;
@@ -293,7 +301,7 @@ void Trajectory::read_preparation_step3_remove_duplication(bool removeDup) {
                 this->DiscardFrame(i);
                 deletedFrames++;
             }
-            my_assert_true(NFrames()+deletedFrames==oldNFrames);
+            ERROR_IF_FALSE(NFrames()+deletedFrames==oldNFrames);
         }
     }
 }
@@ -301,33 +309,32 @@ void Trajectory::read_initialize_step4_initialize_frame_vector(int &oldNFrames){
     // Now resize all vectors: Note that the expanded vectors are not initialized until
     // the moment each frame is read in.
     oldNFrames = NFrames();
-    int newNFrames = oldNFrames + trajFile.timesteps.size();
+    int newNFrames = oldNFrames + trajFile.NFrames();
     frames_.resize(newNFrames);
     /* Initialize vector and shared_ptrs. Allocate memory also at this time.
      * Note : this is to assume all frames having the same stored info. If this is not the case, you'll need to change
      * the code: move createMemory into TrajectoryFrame::Read()
      * */
-    int lineno;
-    int nAtoms;
-    JumpToLine(trajFile.lines,"ITEM: NUMBER OF ATOMS",lineno,0,20);
-    nAtoms = stoi(StringSplit(trajFile.lines[lineno+1])[0]);
-    JumpToLine(trajFile.lines,"ITEM: ATOMS",lineno,0,20);
-    KeywordsColumnPos kcp;
-    kcp.FindColumnPos(trajFile.lines[lineno]);
-    for(int i=0;i<trajFile.timesteps.size();i++){
+//    int lineno;
+//    int nAtoms;
+//    JumpToLine(trajFile.lines,"ITEM: NUMBER OF ATOMS",lineno,0,20);
+//    nAtoms = stoi(StringSplit(trajFile.lines[lineno+1])[0]);
+//    JumpToLine(trajFile.lines,"ITEM: ATOMS",lineno,0,20);
+//    KeywordsColumnPos kcp;
+//    kcp.FindColumnPos(trajFile.lines[lineno]);
+    for(int i=0;i<trajFile.NFrames();i++){
         frames_[oldNFrames+i] = make_shared<TrajectoryFrame>();
-        frames_[oldNFrames+i]->nAtoms_ = nAtoms;
+//        frames_[oldNFrames+i]->nAtoms_ = nAtoms;
 //        frames_[oldNFrames+i]->createMemory(kcp);
     }
 }
 void Trajectory::read_final_step5_in_parallel(int oldNFrames, int max_workers){
     // Read all frames, in parallel, with timing...
-    output("Processing "+to_string(trajFile.timesteps.size())+" new frames..");
+    output("Processing "+to_string(trajFile.NFrames())+" new frames..");
     auto start = chrono::system_clock::now();
     if(max_workers<1) // automatically determine threads number;
         max_workers = thread::hardware_concurrency();
     vector<thread> th_;
-    int iFrame = oldNFrames; // this is the value that's mutexed.
     for(int iThread=0;iThread<max_workers;iThread++){
         //th_.push_back(thread(&Trajectory::__read_frame_thread_main_,this,iThread,ref(iFrame),oldNFrames));
         th_.push_back(thread(&Trajectory::__read_frame_thread_main_method2_,this,iThread,max_workers,oldNFrames));
@@ -343,8 +350,8 @@ void Trajectory::read_final_step5_in_parallel(int oldNFrames, int max_workers){
 
 
 int Trajectory::Read(string filename, int max_workers, int maxFrames, bool removeDup, set<int> certainFrames){
-    read_file_step0(filename);
-    read_preparation_step1_find_frames_in_file();
+    //read_file_step0(filename);
+    read_preparation_step1_find_frames_in_file(filename);
     read_preparation_step2_find_actually_read_frames(maxFrames,certainFrames);
     read_preparation_step3_remove_duplication(removeDup);
     int oldNFrames;
@@ -390,8 +397,14 @@ void Trajectory::__read_frame_thread_main_(int iThread,int &iFrame,int oldNFrame
 void Trajectory::__read_frame_thread_main_method2_(int iThread, int NThreads, int oldNFrames) {
     int Nframes = NFrames();
     int partition = Nframes%NThreads==0? Nframes/NThreads : Nframes/NThreads+1 ;
-    for(int localIFrame=partition*iThread;localIFrame< min(partition*(iThread+1),Nframes);localIFrame+=1){
+    int start = partition*iThread;
+    int end = min(partition*(iThread+1),Nframes);
+    for(int localIFrame=start;localIFrame< end;localIFrame++){
+        //cout<<"Thread "<<iThread<<" Prasing Frame "<<localIFrame<<"/"<<Nframes<<"..."<<endl;
         frames_[localIFrame]->Read(trajFile, localIFrame - oldNFrames, true);
+        //cout<<"Thread "<<iThread<<" Parsed Frame "<<localIFrame<<"/"<<Nframes<<endl;
+        if(iThread==0)
+            ProgressBar(1.0*(localIFrame-start)/(end-start));
     }
 }
 
