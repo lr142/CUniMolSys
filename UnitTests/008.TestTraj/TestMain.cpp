@@ -41,13 +41,13 @@ TEST(Reading,DISABLED_t2){
     }
     {
         Trajectory traj(ms);
-//            set<int> certainFrames;
-//            for(int i=4;i<250;i+=3){
-//                certainFrames.insert(i*10000);
-//            }
+        set<int> certainFrames;
+//        for(int i=4;i<100;i+=2){ // 4,6,8,10,12,... * 1000
+//            certainFrames.insert(i*1000);
+//        }
         for(int i=0;i<1;i++) {
-            traj.Read(curPath + "polymer.traj");
-            traj.ShowTrajectory(DATAFILESPATH+"/../dump.mol2",false);
+            traj.Read(curPath + "polymer.traj",-1,99999,true,certainFrames); // 4,6,8,10,12 * 10000
+            traj.ShowTrajectory(DATAFILESPATH+"/../dump.mol2",true,1);
         }
     }
 }
@@ -58,24 +58,22 @@ TEST(Reading,largeSys){
     curPath = DATAFILESPATH+"/../../0402_PolyDADMAC_400K/";
     QuickOpen(ms,curPath+"system.data");
     cout<<ms.Summary()<<endl;
-    if(false){
-        MolecularSystem copy = ms.DeepCopy();
-        MolSysReduceToSingleMolecule(copy);
-        QuickSave(copy, DATAFILESPATH + "/../dump.mol2");
-        exit(0);
-    }
     {
         Trajectory traj(ms);
         set<int> certainFrames;
-//        for(int i=0;i<6000000;i+=100000){
-//            certainFrames.insert(i);
-//        }
-        traj.Read(curPath + "system.lammpstrj");
-        //traj.Read(curPath + "system.lammpstrj.2");
-        for(int i=0;i<traj.NFrames();i++){
-            cout<<"Frame = "<<i<<", ts = "<<traj[i].ts_<<", NAtoms = "<<traj[i].nAtoms_<<endl;
+        for(int i=0;i<500;i+=4){
+            certainFrames.insert(i*10000);
         }
-//        traj.ShowTrajectory(DATAFILESPATH+"/../dump.mol2",false);
+        traj.Read(curPath + "system.lammpstrj",4,99999,true);//,certainFrames);
+        //traj.Read(curPath + "system.lammpstrj.2",4,99999,true);
+//        for(int i=0;i<traj.NFrames();i++){
+//            cout<<"Frame = "<<i<<", ts = "<<traj[i].ts_<<", NAtoms = "<<traj[i].nAtoms_<<endl;
+//        }
+        string filename = "";//DATAFILESPATH+"/../dump.mol2";
+
+        traj.ShowTrajectory(filename,false,4);
+        traj.ShowTrajectory(filename,false,8);
+        traj.ShowTrajectory(filename,false,-1);
     }
 }
 

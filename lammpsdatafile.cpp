@@ -45,9 +45,6 @@ bool LAMMPSDataFile::Read(MolecularSystem &ms, string filename){
     int lineno=0;
 
     int nAtoms;
-    int nAtomTypes;
-    int nBonds;
-    int nBondTypes;
     map<int,string> atomElementOfEachType; //inferred from the mass of each atom type
 
     while(getline(ifs,line)){
@@ -62,12 +59,6 @@ bool LAMMPSDataFile::Read(MolecularSystem &ms, string filename){
         // But the info we look for should always appear within the first 50 lines.
         if(JumpToLine(lines,"atoms",lineno,0,50))
             nAtoms = stoi(StringSplit(lines[lineno])[0]);
-        if(JumpToLine(lines,"bonds",lineno,0,50))
-            nBonds = stoi(StringSplit(lines[lineno])[0]);
-        if(JumpToLine(lines,"atom types",lineno,0,50))
-            nAtomTypes = stoi(StringSplit(lines[lineno])[0]);
-        if(JumpToLine(lines,"bond types",lineno,0,50))
-            nBondTypes = stoi(StringSplit(lines[lineno])[0]);
 
         //Read boundary
         JumpToLine(lines,"xlo xhi",lineno,0,lines.size());

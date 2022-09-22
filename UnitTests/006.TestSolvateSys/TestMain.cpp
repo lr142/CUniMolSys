@@ -27,7 +27,7 @@ TEST(Solvate,t1){
 
     Boundary region;
     region.SetOrigin({-30,-35,-40});
-    double uvw[3][3] = {{50,0,0},{0,50,0},{0,0,40}};
+    XYZ_DTYPE uvw[3][3] = {{50,0,0},{0,50,0},{0,0,40}};
     region.SetUVW(uvw);
 
     MolSysSolvate(ms,region,WaterType::TIP4P,2.8);

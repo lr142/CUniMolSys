@@ -4,6 +4,7 @@
 class Mol2File:public MolecularFile{
 public:
     Mol2File(bool writeElementInsteadOfType=true);
+    ~Mol2File() override {}
     bool Read(MolecularSystem &ms, string filename) override;
     bool Write(MolecularSystem &ms, string filename) override;
 

@@ -105,6 +105,14 @@ protected:
     std::map<string,double> atomicWeights_;
 };
 
+// Multi-threading related functions
+/* If there is a for loop of nTasks tasks looping over [0, nTasks),
+ * Given totally nThreads threads, this function returns a pair of numbers <start,end>
+ * where thread iThread should loop over [start,end). This function try to evenly (and locally) distribute
+ * tasks among threads. eg. 5 tasks and 3 thread, thread0, thread1, thread2 will get job
+ * (0,1), (2,3), (4), respectively */
+pair<int,int> TaskDistribution(int iThread,int nThreads,int nTasks);
+
 // Mathematical Functions
 template <class T=double>
 class XYZ_T_{

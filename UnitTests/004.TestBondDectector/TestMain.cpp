@@ -32,7 +32,7 @@ protected:
     MolecularSystem SelectRegionFromMolecularSystem(MolecularSystem &ms, XYZ origin, XYZ lengths){
         MolecularSystem newMS;
         newMS.boundary.SetOrigin(origin);
-        double uvw[3][3] = {{lengths[0],0,0},{0,lengths[1],0},{0,0,lengths[2]}};
+        XYZ_DTYPE uvw[3][3] = {{lengths[0],0,0},{0,lengths[1],0},{0,0,lengths[2]}};
         newMS.boundary.SetUVW(uvw);
 
         for(int i=0;i<ms.MoleculesCount();i++){

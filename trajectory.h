@@ -106,12 +106,13 @@ public:
      * will be appended to the last.
      * max_workers is the number of CPUs to use. <=0 means let the program itself to determine based on available resources
      * maxFrames is the maximum number of frames to actually read. default is unlimited
-     * if removeDup==true, when a readly new frame has the same timestep as a previous frame (read from last
+     * if removeDup==true, when a read new frame has the same timestep as a previous frame (read from last
      *   call of this function), the old frame will be discarded. This is useful when a MD simulation writes multiple
      *   trajectory files, and sometimes the 1st frame of the 2nd file is exactly the last frame of the 1st file.
      * if certainFrames is non-empty, only the frames specified in certainFrames (by thier timestep values)  will be
      *   read. If the frame ts specified in [certainFrames] are not present in the actual file, this frame will be simply
-     *   ignored. This is useful when the caller does not know how many frames are in the file.
+     *   ignored. This is useful when the caller does not know how many frames are in the file. if both certainFrames and
+     *   maxFrames are given, at most maxFrames frames in the certainFrames set will be read.
      * This function returns the number of actually read frames.
      * */
     int Read(string filename, int max_workers=-1, int maxFrames=(int)MY_LARGE,
@@ -126,7 +127,7 @@ public:
      * Atoms not involved in the trajectory will keep their original coords. If only_in_traj
      * is true, only those atoms reported in the trajectory will be reported */
     shared_ptr<MolecularSystem> UpdateCoordsAtFrame(int iFrame, bool only_in_traj=false);
-    void ShowTrajectory(string filename, bool showOriginal=true);
+    void ShowTrajectory(string filename, bool showOriginal=true, int max_workers=-1);
     inline TrajectoryFrame & operator[](int i) {return *(frames_[i]);}
 protected:
     MolecularSystem &ms_;
@@ -137,26 +138,20 @@ protected:
 
     /* Read all lines of a lammpstrj file into this->trajFile.
      * skims the contents of the file and find out how many frames are there and
-     * what are the timesteps (trajFile.timesteps) and starting line numbers (trajFile.startlines) of each frame.
-     * This function */
-    void read_preparation_step1_find_frames_in_file(string filename);
-    /* Based on the given maxFrames and/or certainFrames parameters, determine which frames will be actually read.
-     * This function will modify (trajFile.timesteps) and (trajFile.startlines) to reflect the result */
-    void read_preparation_step2_find_actually_read_frames(int maxFrames, set<int> &certainFrames);
+     * what are the timesteps (trajFile.timesteps) and atom counts */
+    void read_preparation_step1_find_frames_in_file(string filename,int maxFrames,set<int> &certainFrames);
     /* This function will remove duplicate frames in the existing data. By 'duplication' we mean two frames have the
      * same timestep value. The new frames are given in (trajFile.timesteps). If duplication occurs, the old data
      * will be deleted */
     void read_preparation_step3_remove_duplication(bool removeDup);
 
-    void read_initialize_step4_initialize_frame_vector(int &oldNFrames);
+    void read_initialize_step4_initialize_frame_vector();
     void read_final_step5_in_parallel(int oldNFrames, int max_workers);
 
     TrajFile trajFile;
-    std::default_random_engine e;
-
-    void __test_thread_main__(int iThread,int &iFrame,int nFrames, int nAtoms);
-
+//    std::default_random_engine e;
     void __read_frame_thread_main__(int iThread, int NThreads, int oldNFrames);
+    void __show_trajectory_thread_main__(int iThread,int NThreads,bool showOriginal, vector<shared_ptr<MolecularSystem>> &sys);
 
     std::mutex mux;
 };

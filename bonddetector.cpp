@@ -339,7 +339,6 @@ void NeighborList::removeAtomListDuplication(vector<AtomInGrid> &vec) {
     vector<AtomInGrid> copy;
     set<int> foundAtoms;
     for(int i=0;i<vec.size();i++) {
-        AtomInGrid *pAtom = &vec[i];
         if (foundAtoms.find(vec[i].index) == foundAtoms.end()) {
             foundAtoms.insert(vec[i].index);
             copy.push_back(vec[i]);

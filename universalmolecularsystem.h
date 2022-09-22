@@ -82,6 +82,7 @@ class MolecularFile{
 public:
     virtual bool Read(MolecularSystem &ms, string filename) = 0;
     virtual bool Write(MolecularSystem &ms, string filename) = 0;
+    virtual ~MolecularFile(){}
 };
 
 // The abstract base class of bond detectors
@@ -118,7 +119,7 @@ class MolecularSystem{
 public:
     MolecularSystem(string name="");
     ~MolecularSystem() = default;
-    inline void SetName(string name){name=name;}
+    inline void SetName(string n){name=n;}
     inline string GetName(){return name;}
     void Read(MolecularFile *pFile,string filename);
     void Write(MolecularFile *pFile,string filename);

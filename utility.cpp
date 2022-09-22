@@ -218,3 +218,11 @@ string PeriodicTable::PossibleElementWithGivenWeight(double weight){
     }
     return element_with_min_error;
 }
+
+// Multi-threading related functions
+pair<int,int> TaskDistribution(int iThread,int nThreads,int nTasks){
+    int tasks_per_thread = nTasks%nThreads==0? nTasks/nThreads : nTasks/nThreads+1 ;
+    int start = tasks_per_thread*iThread;
+    int end = min(tasks_per_thread*(iThread+1),nTasks);
+    return make_pair(start,end);
+}
