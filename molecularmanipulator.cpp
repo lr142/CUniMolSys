@@ -278,7 +278,7 @@ void MolSysSubSystemBySerials(MolecularSystem &ms,set<string> &globalSerials){
 
 bool _add_this_water_(MolecularSystemAccessor &originalSys, NeighborList &nlist, Boundary &bound, Molecule &mol, int indexOfOxygen, double minDistSquared){
     XYZ oxygen_pos = mol[indexOfOxygen].xyz;
-    double lohi[3][2];
+    XYZ_DTYPE lohi[3][2];
     bound.GetLoHi(lohi);
     // Check if the water is out of the bound
     for(int i=0;i<3;i++){

@@ -72,7 +72,7 @@ bool Boundary::Orthogonal(){
 void Boundary::SetUVW(XYZ u,XYZ v,XYZ w){
     uvw[0]=u; uvw[1]=v; uvw[2]=w;
 }
-void Boundary::SetUVW(double uvw[3][3]) {
+void Boundary::SetUVW(XYZ_DTYPE uvw[3][3]) {
     for(int i=0;i<3;i++){
         for(int j=0;j<3;j++){
             this->uvw[i][j] = uvw[i][j];
@@ -87,7 +87,7 @@ XYZ& Boundary::operator[](int index){
         throw out_of_range("Boundary::operator[]");
     return this->uvw[index];
 }
-void Boundary::SetLoHi(double lohi[3][2]){
+void Boundary::SetLoHi(XYZ_DTYPE lohi[3][2]){
     if(!Orthogonal())
         throw runtime_error("In Boundary::SetLoHi(), boundary not orthogonal!");
     uvw[0] = {lohi[0][1]-lohi[0][0], 0, 0};
@@ -95,7 +95,7 @@ void Boundary::SetLoHi(double lohi[3][2]){
     uvw[2] = {0, 0, lohi[2][1]-lohi[2][0]};
     origin_ = {lohi[0][0], lohi[1][0], lohi[2][0]};
 }
-void Boundary::GetLoHi(double lohi[3][2]){
+void Boundary::GetLoHi(XYZ_DTYPE lohi[3][2]){
     if(!Orthogonal())
         throw runtime_error("In Boundary::GetLoHi(), boundary not orthogonal!");
     for(int i=0;i<3;i++){
@@ -103,7 +103,7 @@ void Boundary::GetLoHi(double lohi[3][2]){
         lohi[i][1] = lohi[i][0] + uvw[i][i];
     }
 }
-void Boundary::GetUVW(double uvw[3][3]){
+void Boundary::GetUVW(XYZ_DTYPE uvw[3][3]){
     for(int i=0;i<3;i++){
         for(int j=0;j<3;j++){
             uvw[i][j] = this->uvw[i][j];
@@ -118,7 +118,7 @@ string Boundary::Show(){
     ostringstream oss;
     oss<<"UVW: "<<(*this)[0]<<", "<<(*this)[1]<<", "<<(*this)[2]<<endl;
     oss << "Center: " << origin_ << endl;
-    double lohi[3][2];
+    XYZ_DTYPE lohi[3][2];
     GetLoHi(lohi);
     oss<<"LoHi: { ["<<lohi[0][0]<<", "<<lohi[0][1]<<"], ["
     <<lohi[1][0]<<", "<<lohi[1][1]<<"], ["
@@ -269,7 +269,7 @@ void MolecularSystem::Rotate(double clockwise_degree, XYZ axis){
 void MolecularSystem::FractionalToCartesian(){
     if(!boundary.Orthogonal())
         ERROR("Not supported for non-orthogonal systems!");
-    double uvw[3][3];
+    XYZ_DTYPE uvw[3][3];
     boundary.GetUVW(uvw);
     double X,Y,Z;
     X = uvw[0][0];

@@ -297,27 +297,18 @@ void Trajectory::read_preparation_step3_remove_duplication(bool removeDup) {
         }
     }
 }
-
-int Trajectory::Read(string filename, int max_workers, int maxFrames, bool removeDup, set<int> certainFrames){
-    read_file_step0(filename);
-    read_preparation_step1_find_frames_in_file();
-    read_preparation_step2_find_actually_read_frames(maxFrames,certainFrames);
-    read_preparation_step3_remove_duplication(removeDup);
-
+void Trajectory::read_initialize_step4_initialize_frame_vector(int &oldNFrames){
     // Now resize all vectors: Note that the expanded vectors are not initialized until
     // the moment each frame is read in.
-    int oldNFrames = NFrames();
+    oldNFrames = NFrames();
     int newNFrames = oldNFrames + trajFile.timesteps.size();
-
     frames_.resize(newNFrames);
-
     /* Initialize vector and shared_ptrs. Allocate memory also at this time.
      * Note : this is to assume all frames having the same stored info. If this is not the case, you'll need to change
      * the code: move createMemory into TrajectoryFrame::Read()
      * */
     int lineno;
     int nAtoms;
-
     JumpToLine(trajFile.lines,"ITEM: NUMBER OF ATOMS",lineno,0,20);
     nAtoms = stoi(StringSplit(trajFile.lines[lineno+1])[0]);
     JumpToLine(trajFile.lines,"ITEM: ATOMS",lineno,0,20);
@@ -328,8 +319,8 @@ int Trajectory::Read(string filename, int max_workers, int maxFrames, bool remov
         frames_[oldNFrames+i]->nAtoms_ = nAtoms;
 //        frames_[oldNFrames+i]->createMemory(kcp);
     }
-
-
+}
+void Trajectory::read_final_step5_in_parallel(int oldNFrames, int max_workers){
     // Read all frames, in parallel, with timing...
     output("Processing "+to_string(trajFile.timesteps.size())+" new frames..");
     auto start = chrono::system_clock::now();
@@ -348,6 +339,27 @@ int Trajectory::Read(string filename, int max_workers, int maxFrames, bool remov
     auto end = chrono::system_clock::now();
     auto duration = chrono::duration_cast<chrono::milliseconds>(end-start);
     output("Done in "+ to_string(duration.count()/1000.0)+" seconds.");
+}
+
+
+int Trajectory::Read(string filename, int max_workers, int maxFrames, bool removeDup, set<int> certainFrames){
+    read_file_step0(filename);
+    read_preparation_step1_find_frames_in_file();
+    read_preparation_step2_find_actually_read_frames(maxFrames,certainFrames);
+    read_preparation_step3_remove_duplication(removeDup);
+    int oldNFrames;
+    read_initialize_step4_initialize_frame_vector(oldNFrames);
+    { // for testing scalability
+        output(" 1 worker");
+        read_final_step5_in_parallel(oldNFrames, 1);
+        output(" 2 workers");
+        read_final_step5_in_parallel(oldNFrames, 2);
+        output(" 4 workers");
+        read_final_step5_in_parallel(oldNFrames, 4);
+        output(" 8 workers");
+        read_final_step5_in_parallel(oldNFrames, 8);
+    }
+
     return 0;
 }
 void Trajectory::__read_frame_thread_main_(int iThread,int &iFrame,int oldNFrames){
@@ -377,7 +389,7 @@ void Trajectory::__read_frame_thread_main_(int iThread,int &iFrame,int oldNFrame
 
 void Trajectory::__read_frame_thread_main_method2_(int iThread, int NThreads, int oldNFrames) {
     int Nframes = NFrames();
-    int partition = Nframes/NThreads;
+    int partition = Nframes%NThreads==0? Nframes/NThreads : Nframes/NThreads+1 ;
     for(int localIFrame=partition*iThread;localIFrame< min(partition*(iThread+1),Nframes);localIFrame+=1){
         frames_[localIFrame]->Read(trajFile, localIFrame - oldNFrames, true);
     }
@@ -451,65 +463,6 @@ void Trajectory::ShowTrajectory(std::string filename,bool showOriginal) {
     QuickSave(entire,filename);
 }
 
-//void Trajectory::_thread_main_(int iThread,int iFrameStart, int iFrameEnd, int NAtoms) {
-//    uniform_int_distribution<int> uid(10,50);
-//    for(int iFrame=iFrameStart;iFrame<iFrameEnd;iFrame++){
-//        //cout<<"iFrame = "<<iFrame<<endl;
-//        // Each Thread work independently, no need to add lock?
-//        KeywordsColumnPos kcp;
-//        kcp.x = 0;
-//        auto &frame = (*this)[iFrame];
-//        frame.nAtoms_ = NAtoms;
-//        frame.createMemory(kcp);
-//        for(int iAtom=0;iAtom<NAtoms;iAtom++){
-//            frame.x_[iAtom] = {double(iFrame),double(iAtom),double(iFrame)*iAtom};
-//        }
-//    }
-//    this_thread::sleep_for(chrono::milliseconds(uid(e))); // sleep for a random time
-//}
-
-//void Trajectory::_testMultiThread() {
-//    int NAtoms = 114514;
-//    int NFrames = 2000;
-//    int nThreads = 8;
-//
-//    frames_.resize(NFrames);
-//
-//    nThreads = min(8,nThreads);
-//    int framesEachThread = NFrames/nThreads;
-//
-//    vector<thread> th_;
-//    for(int iThread=0;iThread<nThreads;iThread++){
-//        int start = iThread*framesEachThread;
-//        int end = (iThread==nThreads-1? NFrames : (iThread+1)*framesEachThread);
-//        th_.push_back(thread(&Trajectory::_thread_main_,this,iThread,start,end,NAtoms));
-//        //th_[th_.size()-1].detach();
-//        //(iThread,start,end);
-//        cout<<"Thread "<<iThread<<" started"<<endl;
-//    }
-//
-//    for(int iThread=0;iThread<nThreads;iThread++){
-//        th_[iThread].join();
-//        cout<<"Thread "<<iThread<<" ended : "<<endl;
-//    }
-//
-//    //return;
-//    // check consistency
-//
-//    for(int iFrame=0;iFrame<NFrames;iFrame++){
-//        for(int iAtom=0;iAtom<NAtoms;iAtom++){
-//#define MY_ASSERT_DOUBLE_EQUAL(a,b) if(not double_equal((a),(b))){cout<<iFrame<<" "<<iAtom<<" "<<(a)<<" "<<(b)<<endl;}
-//            MY_ASSERT_DOUBLE_EQUAL((*this)[iFrame].x_[iAtom][0], iFrame);
-//            MY_ASSERT_DOUBLE_EQUAL((*this)[iFrame].x_[iAtom][1], iAtom);
-//            MY_ASSERT_DOUBLE_EQUAL((*this)[iFrame].x_[iAtom][2], double(iFrame)*iAtom);
-//#undef MY_ASSERT_DOUBLE_EQUAL
-//        }
-//        if(nThreads==1)
-//            ProgressBar(double(iFrame)/NFrames);
-//    }
-//
-//    Clear();
-//}
 
 void Trajectory::__test_thread_main__(int iThread,int &iFrame,int nFrames, int nAtoms){
     uniform_int_distribution<int> uid(1000,4000);
@@ -535,7 +488,7 @@ void Trajectory::__test_thread_main__(int iThread,int &iFrame,int nFrames, int n
             pF->nAtoms_ = nAtoms;
             pF->createMemory(kcp);
             for(int iAtom=0;iAtom<nAtoms;iAtom++){
-                pF->v_[iAtom] = {double(localIFrame),double(iAtom),double(localIFrame)*iAtom};
+                pF->v_[iAtom] = {XYZ_DTYPE(localIFrame),XYZ_DTYPE(iAtom),XYZ_DTYPE(localIFrame)*iAtom};
                 pF->f_[iAtom] = pF->v_[iAtom] * 99.0;
                 pF->x_[iAtom] = pF->f_[iAtom] * (1/99.0);
                 pF->i_[iAtom] = {uid(e),uid(e),uid(e)};
@@ -545,12 +498,9 @@ void Trajectory::__test_thread_main__(int iThread,int &iFrame,int nFrames, int n
     }
     cout<<"Thread "<<iThread<<" has processed "<<number_of_tasks<<" tasks."<<endl;
 }
-
-
 bool double_equal(double a,double b){
     return fabs(a-b)<MY_SMALL;
 }
-
 void Trajectory::_testMultiThread() {
     int NAtoms = 114514;
     int NFrames = 1230;

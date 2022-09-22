@@ -135,6 +135,9 @@ protected:
      * will be deleted */
     void read_preparation_step3_remove_duplication(bool removeDup);
 
+    void read_initialize_step4_initialize_frame_vector(int &oldNFrames);
+    void read_final_step5_in_parallel(int oldNFrames, int max_workers);
+
     TrajFile trajFile;
     std::default_random_engine e;
 

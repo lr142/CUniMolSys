@@ -251,5 +251,7 @@ template<class T> void XYZRotate(XYZ_T_<T>* coords, int numAtoms, double degree_
     delete [] newCoords;
 }
 
-using XYZ =  XYZ_T_<double>;
+
+using XYZ_DTYPE = float;
+using XYZ =  XYZ_T_<XYZ_DTYPE>;
 #endif //CUNIMOLSYS_UTILITY_H

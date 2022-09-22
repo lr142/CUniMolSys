@@ -97,16 +97,16 @@ public:
     Boundary();
     bool Orthogonal();
     void SetUVW(XYZ u,XYZ v,XYZ w);
-    void SetUVW(double uvw[3][3]);
+    void SetUVW(XYZ_DTYPE uvw[3][3]);
     void SetOrigin(XYZ origin);
     inline XYZ GetOrigin(){return origin_;}
     XYZ& operator[](int index);
-    void SetLoHi(double lohi[3][2]); // lohi is double[3][2]: {{xlo,xhi},{ylo,yhi},{zlo,zhi}}
-    void GetLoHi(double lohi[3][2]);
+    void SetLoHi(XYZ_DTYPE lohi[3][2]); // lohi is double[3][2]: {{xlo,xhi},{ylo,yhi},{zlo,zhi}}
+    void GetLoHi(XYZ_DTYPE lohi[3][2]);
     inline XYZ GetU(){return uvw[0];}
     inline XYZ GetV(){return uvw[1];}
     inline XYZ GetW(){return uvw[2];}
-    void GetUVW(double uvw[3][3]);
+    void GetUVW(XYZ_DTYPE uvw[3][3]);
     bool Periodic();
     string Show();
 private:
