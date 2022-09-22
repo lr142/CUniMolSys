@@ -4,6 +4,7 @@ set(CMAKE_CXX_STANDARD 20)
 
 if(${MSVC})
     add_compile_options("/MT")
+    add_link_options("/LARGEADDRESSAWARE") # without this, MVSC will fail on >2GB memory usage.
     IF(CMAKE_BUILD_TYPE MATCHES Debug)
         add_compile_options("/MTd")
     else()

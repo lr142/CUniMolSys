@@ -18,14 +18,19 @@ public:
     ~TrajFile() = default;
     TrajFile(const TrajFile &other) = delete; // Prevent accidentally copied this huge object.
     TrajFile& operator=(const TrajFile &other) = delete;
-    /* All lines in the line.lines for each frame are stored in a vector<string>, and different frames are stored
-     * as a vector of shared_ptr of vector<string>. I tried to store all lines in a huge vector<string> but will have
-     * memory fail on PC */
     int NFrames();
-    vector<shared_ptr<vector<string>>> lines;
+    void AddFrame(int nAtoms,int ts);
+    inline vector<string>& operator[] (int iFrame) { return *(lines[iFrame]);}
+    inline int NAtoms(int iFrame){return nAtoms[iFrame];}
+    inline int TimeStep(int iFrame){ return timesteps[iFrame];}
+    void Clear();
     string filename;
+protected:
+    /* All lines in the line.lines for each frame are stored in a vector<string>, and different frames are stored
+     * as a vector of shared_ptr of vector<string>. I tried to store all lines in a huge vector<string> but that
+     * was a bad idea */
+    vector<shared_ptr<vector<string>>> lines;
     vector<int> timesteps; // timestep of each frame; size of this vector is # of frames in file.
-    //vector<int> startlines; // start line no of each frame, for quick access.
     vector<int> nAtoms; // number of atoms of each frame in this file.
 };
 struct KeywordsColumnPos{
@@ -57,13 +62,13 @@ struct KeywordsColumnPos{
 /* A frame in the trajectory */
 class TrajectoryFrame{
 public:
-    TrajectoryFrame();
+    TrajectoryFrame(int nAtoms);
     ~TrajectoryFrame();
     TrajectoryFrame(const TrajectoryFrame& tra) = delete; // prevent accidental copy
     TrajectoryFrame& operator=(const TrajectoryFrame& tra) = delete;
     /* Read a frame from the file. the index of frame in the file is iFrameInTrajFile. if createMemory is true, the
      * function will create memory itself based on the read atoms. If not, the memory is already ready. */
-    void Read(TrajFile &trajFile, int iFrameInTrajFile, bool createMemory=true);
+    void Read(TrajFile &trajFile, int iFrameInTrajFile);
     /* number of atoms in this frame. This number may be smaller (if user dump a specific group instead of all)
  * or larger (when running GCMC) then number of atoms in the system. */
     int nAtoms_;
@@ -76,6 +81,7 @@ public:
     XYZ_T_<int>* i_; // periodic image flags (ix,iy,iz in LAMMPS).
     friend class Trajectory;
 protected:
+    /* Create memory, allocate space as decribed in kcp. Before called this, nAtoms_ must be correctly initialized */
     void createMemory(KeywordsColumnPos &kcp);
     void destroyMemory();
     void sort_atoms();
@@ -150,10 +156,7 @@ protected:
 
     void __test_thread_main__(int iThread,int &iFrame,int nFrames, int nAtoms);
 
-
-    void __read_frame_thread_main_(int iThread,int &iFrame,int oldNFrames);
-
-    void __read_frame_thread_main_method2_(int iThread,int NThreads,int oldNFrames);
+    void __read_frame_thread_main__(int iThread, int NThreads, int oldNFrames);
 
     std::mutex mux;
 };

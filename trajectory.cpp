@@ -34,13 +34,25 @@ int TrajFile::NFrames(){
     ERROR_IF_FALSE(timesteps.size() == nAtoms.size())
     return timesteps.size();
 }
+void TrajFile::Clear() {
+    timesteps.clear();
+    lines.clear();
+    nAtoms.clear();
+    filename = "";
+}
+void TrajFile::AddFrame(int nAtoms,int ts){
+    timesteps.push_back(ts);
+    this->nAtoms.push_back(nAtoms);
+    lines.push_back(make_shared<vector<string>>());
+    lines[lines.size()-1]->reserve(nAtoms+1); // one extra line for the "ITEM: ATOMS"
+}
 
 void KeywordsColumnPos::FindColumnPos(string line) {
     // a line like this: "ITEM: ATOMS id mol type x y z vx vy vz"
     auto parts = StringSplit(line,' ');
     parts.erase(parts.begin(),parts.begin()+2);
     map<string,int> k2c; // key to column pos map
-    for(int i=0;i<parts.size();i++){
+    for(unsigned int i=0;i<parts.size();i++){
         k2c[parts[i]] = i;
     }
 #define FIND_POS(VAR) VAR = k2c.contains(#VAR) ? k2c[#VAR] : -1;
@@ -66,8 +78,9 @@ void KeywordsColumnPos::FindColumnPos(string line) {
 }
 
 // TrajectoryFrame
-TrajectoryFrame::TrajectoryFrame() {
-    nAtoms_ = ts_ = 0;
+TrajectoryFrame::TrajectoryFrame(int nAtoms){
+    nAtoms_ = nAtoms;
+    ts_ = 0;
     s_ = nullptr;
     x_ = v_ = f_ =  nullptr;
     i_ = nullptr;
@@ -76,13 +89,15 @@ TrajectoryFrame::~TrajectoryFrame(){
     destroyMemory();
     //output("Frame with ts = "+to_string(this->ts_)+" destoryed.");
 }
-void TrajectoryFrame::Read(TrajFile &trajFile, int iFrameInTrajFile, bool createMemory) {
+void TrajectoryFrame::Read(TrajFile &trajFile, int iFrameInTrajFile) {
     int lineno = 0;
-    vector<string> &lines = *trajFile.lines[iFrameInTrajFile];
+    vector<string> &lines = trajFile[iFrameInTrajFile];
 
     // Write systemwise info
-    ts_ = trajFile.timesteps[iFrameInTrajFile];
-    nAtoms_ = stoi(lines[3]);
+    this->ts_ = trajFile.TimeStep(iFrameInTrajFile);
+    int nAtoms = stoi(lines[3]);
+    // double-checking.
+    ERROR_IF_FALSE(nAtoms == this->nAtoms_);
 
     // Allocate per-atom memory
 
@@ -95,8 +110,8 @@ void TrajectoryFrame::Read(TrajFile &trajFile, int iFrameInTrajFile, bool create
     if(kcp.xu==-1 or kcp.yu==-1 or kcp.zu==-1)
         ERROR("\nTrajectory file ["+trajFile.filename+"] missing key info: coordinates");
 
-    if(createMemory)
-        this->createMemory(kcp);
+    this->destroyMemory(); // destroy at first in case of "re-reading" a frame at the same pos, save memory.
+    this->createMemory(kcp);
 
     // Read every atom,
     for(int i=0;i<nAtoms_;i++){
@@ -104,12 +119,6 @@ void TrajectoryFrame::Read(TrajFile &trajFile, int iFrameInTrajFile, bool create
         int serial = stoi(parts[kcp.id]);
         // serial and xyz must always be present
         s_[i] = serial;
-        if(s_[i] < 1){
-            ostringstream oss;
-            oss<<"\nTrajectory file ["<<trajFile.filename<<" @ line "<<lineno+1<<"\n"
-            <<trajFile.lines[lineno]<<"\n"<<"atom id can't be < 1";
-            ERROR(oss.str());
-        }
         x_[i][0] = stof(parts[kcp.xu]);
         x_[i][1] = stof(parts[kcp.yu]);
         x_[i][2] = stof(parts[kcp.zu]);
@@ -208,6 +217,35 @@ int Trajectory::NFrames() {
     return frames_.size();
 }
 
+bool read_one_frame_from_file_(ifstream &ifs, int &lineno,TrajFile& trajFile){
+    string line;
+    int nAtoms;
+    int ts;
+    // Read the header
+    if(not getline(ifs,line) or not StringRegexMatch(line, "ITEM: TIMESTEP"))
+        return false;
+    lineno++;getline(ifs,line);
+    ts = stoi(StringSplit(line)[0]);
+    lineno++;getline(ifs,line);
+    if(not StringRegexMatch(line,"ITEM: NUMBER OF ATOMS"))
+        throw exception();
+    lineno++;getline(ifs,line);
+    nAtoms = stoi(StringSplit(line)[0]);
+    for(int i=0;i<4;i++){
+        lineno++;
+        getline(ifs,line);
+    }
+    // Create a frame
+    trajFile.AddFrame(nAtoms,ts);
+    // there are nAtoms+1 lines to add into the last frame of trajFile
+    for(int i=0;i<nAtoms+1;i++){
+        getline(ifs,line);
+        trajFile[trajFile.NFrames()-1].push_back(line);
+    }
+    lineno += (nAtoms+1);
+    return true;
+}
+
 void Trajectory::read_preparation_step1_find_frames_in_file(string filename){
     // read all into cache
     ifstream ifs(filename);
@@ -215,40 +253,15 @@ void Trajectory::read_preparation_step1_find_frames_in_file(string filename){
         ERROR("Can't open ["+filename+"] to read.");
 
     string line;
+    trajFile.Clear();
     trajFile.filename = filename;
-    trajFile.lines.clear();
-    trajFile.timesteps.clear();
-
 
     output("Reading ["+filename+"] into memory ...");
     auto start = chrono::system_clock::now();
 
-    int lineno = -1;
+    int lineno = 0;
     try {
-        while (getline(ifs,line)){
-            lineno++;
-            if(not StringRegexMatch(line, "ITEM: TIMESTEP"))
-                break;
-
-            trajFile.lines.push_back(make_shared<vector<string>>());
-            auto curFrame = trajFile.lines[trajFile.lines.size()-1];
-            curFrame->push_back(line);
-
-            getline(ifs,line);lineno++;curFrame->push_back(line);
-            int timeStep = stoi(line);
-            trajFile.timesteps.push_back(timeStep);
-
-            getline(ifs,line);lineno++;curFrame->push_back(line);
-            ERROR_IF_FALSE(StringRegexMatch(line, "ITEM: NUMBER OF ATOMS"));
-
-            getline(ifs,line);lineno++;curFrame->push_back(line);
-            int nAtoms = stoi(line);
-            trajFile.nAtoms.push_back(nAtoms);
-
-            for(int i=0;i<nAtoms+5;i++){
-                getline(ifs,line);lineno++;curFrame->push_back(line);
-            }
-        }
+        read_one_frame_from_file_(ifs,lineno,trajFile);
     }
     catch(exception e){
         ERROR("\nWhile reading line "+to_string(lineno+1)+" of ["+trajFile.filename+
@@ -260,11 +273,19 @@ void Trajectory::read_preparation_step1_find_frames_in_file(string filename){
     ostringstream oss;
     oss<<"Done in "<<duration.count()/1000.0<<" seconds. File contains "<<trajFile.NFrames()<<" frames.";
     output(oss.str());
+
+    // double check
+    for(int i=0;i<trajFile.NFrames();i++){
+        if( trajFile[i].size() != trajFile.NAtoms(i) or
+            not StringRegexMatch(trajFile[i][0],"ITEM: ATOMS"))
+            ERROR("Trajectory file reading error for frame ."+ to_string(i));
+    }
 }
 void Trajectory::read_preparation_step2_find_actually_read_frames(int maxFrames, set<int> &certainFrames){
     // the [certainFrames] parameter has higher priority
     if(not certainFrames.empty()){
         vector<int> ts;
+        TrajFile newTrjFile;
         for(int i=0;i<trajFile.NFrames();i++){
             if(certainFrames.contains( trajFile.timesteps[i]) ){
                 ts.push_back(trajFile.timesteps[i]);
@@ -311,21 +332,9 @@ void Trajectory::read_initialize_step4_initialize_frame_vector(int &oldNFrames){
     oldNFrames = NFrames();
     int newNFrames = oldNFrames + trajFile.NFrames();
     frames_.resize(newNFrames);
-    /* Initialize vector and shared_ptrs. Allocate memory also at this time.
-     * Note : this is to assume all frames having the same stored info. If this is not the case, you'll need to change
-     * the code: move createMemory into TrajectoryFrame::Read()
-     * */
-//    int lineno;
-//    int nAtoms;
-//    JumpToLine(trajFile.lines,"ITEM: NUMBER OF ATOMS",lineno,0,20);
-//    nAtoms = stoi(StringSplit(trajFile.lines[lineno+1])[0]);
-//    JumpToLine(trajFile.lines,"ITEM: ATOMS",lineno,0,20);
-//    KeywordsColumnPos kcp;
-//    kcp.FindColumnPos(trajFile.lines[lineno]);
     for(int i=0;i<trajFile.NFrames();i++){
-        frames_[oldNFrames+i] = make_shared<TrajectoryFrame>();
-//        frames_[oldNFrames+i]->nAtoms_ = nAtoms;
-//        frames_[oldNFrames+i]->createMemory(kcp);
+        frames_[oldNFrames+i] =
+                make_shared<TrajectoryFrame>(trajFile.nAtoms[i]);
     }
 }
 void Trajectory::read_final_step5_in_parallel(int oldNFrames, int max_workers){
@@ -334,10 +343,9 @@ void Trajectory::read_final_step5_in_parallel(int oldNFrames, int max_workers){
     auto start = chrono::system_clock::now();
     if(max_workers<1) // automatically determine threads number;
         max_workers = thread::hardware_concurrency();
-    vector<thread> th_;
-    for(int iThread=0;iThread<max_workers;iThread++){
+    vector<thread> th_;for(int iThread=0;iThread<max_workers;iThread++){
         //th_.push_back(thread(&Trajectory::__read_frame_thread_main_,this,iThread,ref(iFrame),oldNFrames));
-        th_.push_back(thread(&Trajectory::__read_frame_thread_main_method2_,this,iThread,max_workers,oldNFrames));
+        th_.push_back(thread(&Trajectory::__read_frame_thread_main__, this, iThread, max_workers, oldNFrames));
     }
     for(int iThread=0;iThread<max_workers;iThread++){
         th_[iThread].join();
@@ -369,45 +377,19 @@ int Trajectory::Read(string filename, int max_workers, int maxFrames, bool remov
 
     return 0;
 }
-void Trajectory::__read_frame_thread_main_(int iThread,int &iFrame,int oldNFrames){
-    while(true){
-        int localIFrame;
-        {
-            mux.lock();
-            //unique_lock<mutex> lock(mux);  // must add lock before read/write iFrame
-            if(iFrame<NFrames()) {
-                localIFrame = iFrame++;
-                mux.unlock();
-            }
-            else{
-                mux.unlock();
-                break;
-            }
-            // it will release the lock when goes outside the bracket
-        }
-        // localIFrame will be defined if reached here. localIFrame-oldNFrames == iframe in the file.
-        // cout<<"Thread "<<iThread<<" is reading frame "<<localIFrame<<endl;
-        /* if setting the last parameter to be false, we're telling the function not to create memory */
-        frames_[localIFrame]->Read(trajFile, localIFrame - oldNFrames, true);
-//        if(iThread==0)
-//            ProgressBar(localIFrame*1.0/NFrames());
-    }
-}
-
-void Trajectory::__read_frame_thread_main_method2_(int iThread, int NThreads, int oldNFrames) {
+void Trajectory::__read_frame_thread_main__(int iThread, int NThreads, int oldNFrames) {
     int Nframes = NFrames();
     int partition = Nframes%NThreads==0? Nframes/NThreads : Nframes/NThreads+1 ;
     int start = partition*iThread;
     int end = min(partition*(iThread+1),Nframes);
     for(int localIFrame=start;localIFrame< end;localIFrame++){
         //cout<<"Thread "<<iThread<<" Prasing Frame "<<localIFrame<<"/"<<Nframes<<"..."<<endl;
-        frames_[localIFrame]->Read(trajFile, localIFrame - oldNFrames, true);
+        frames_[localIFrame]->Read(trajFile, localIFrame - oldNFrames);
         //cout<<"Thread "<<iThread<<" Parsed Frame "<<localIFrame<<"/"<<Nframes<<endl;
         if(iThread==0)
             ProgressBar(1.0*(localIFrame-start)/(end-start));
     }
 }
-
 
 shared_ptr<MolecularSystem> Trajectory::UpdateCoordsAtFrame(int iFrame, bool only_in_traj){
     ostringstream err_msg;
@@ -474,83 +456,4 @@ void Trajectory::ShowTrajectory(std::string filename,bool showOriginal) {
         cout<<"Frame "<<i<<endl;
     }
     QuickSave(entire,filename);
-}
-
-
-void Trajectory::__test_thread_main__(int iThread,int &iFrame,int nFrames, int nAtoms){
-    uniform_int_distribution<int> uid(1000,4000);
-    int number_of_tasks = 0;
-    while(true){
-        int localIFrame;
-        {
-            unique_lock<mutex> lock(mux);
-            if(iFrame < nFrames) {
-                localIFrame = iFrame;
-                iFrame++;
-            }
-            else {
-                break;
-            }
-        }
-        cout<<"Thread "<<iThread<<" is processing task "<<iFrame<<endl;
-        { // The actual work
-            KeywordsColumnPos kcp;
-            kcp.FindColumnPos("ITEMS: ATOM x y z id fx fy fz vx vz vy iz iy iz");
-            auto &pF = frames_[localIFrame];
-            pF = make_shared<TrajectoryFrame>();
-            pF->nAtoms_ = nAtoms;
-            pF->createMemory(kcp);
-            for(int iAtom=0;iAtom<nAtoms;iAtom++){
-                pF->v_[iAtom] = {XYZ_DTYPE(localIFrame),XYZ_DTYPE(iAtom),XYZ_DTYPE(localIFrame)*iAtom};
-                pF->f_[iAtom] = pF->v_[iAtom] * 99.0;
-                pF->x_[iAtom] = pF->f_[iAtom] * (1/99.0);
-                pF->i_[iAtom] = {uid(e),uid(e),uid(e)};
-            }
-        }
-        number_of_tasks++;
-    }
-    cout<<"Thread "<<iThread<<" has processed "<<number_of_tasks<<" tasks."<<endl;
-}
-bool double_equal(double a,double b){
-    return fabs(a-b)<MY_SMALL;
-}
-void Trajectory::_testMultiThread() {
-    int NAtoms = 114514;
-    int NFrames = 1230;
-    int nThreads = 8;
-
-    frames_.resize(NFrames);
-
-    nThreads = min(8,nThreads);
-
-    vector<thread> th_;
-    mutex mux;
-    int iFrame = 0; // mutexed variable
-
-    for(int iThread=0;iThread<nThreads;iThread++){
-        th_.push_back(thread(&Trajectory::__test_thread_main__,this,iThread,ref(iFrame),NFrames,NAtoms));
-        //th_[th_.size()-1].detach();
-        //(iThread,start,end);
-        //cout<<"Thread "<<iThread<<" started"<<endl;
-    }
-
-    for(int iThread=0;iThread<nThreads;iThread++){
-        th_[iThread].join();
-        cout<<"Thread "<<iThread<<" ended : "<<endl;
-    }
-
-
-    for(int iFrame=0;iFrame<NFrames;iFrame++){
-        for(int iAtom=0;iAtom<NAtoms;iAtom++){
-#define MY_ASSERT_DOUBLE_EQUAL(a,b) if(not double_equal((a),(b))){cout<<iFrame<<" "<<iAtom<<" "<<(a)<<" "<<(b)<<endl;}
-            MY_ASSERT_DOUBLE_EQUAL((*this)[iFrame].x_[iAtom][0], iFrame);
-            MY_ASSERT_DOUBLE_EQUAL((*this)[iFrame].x_[iAtom][1], iAtom);
-            MY_ASSERT_DOUBLE_EQUAL((*this)[iFrame].x_[iAtom][2], double(iFrame)*iAtom);
-#undef MY_ASSERT_DOUBLE_EQUAL
-        }
-        if(nThreads==1)
-            ProgressBar(double(iFrame)/NFrames);
-    }
-
-    Clear();
 }

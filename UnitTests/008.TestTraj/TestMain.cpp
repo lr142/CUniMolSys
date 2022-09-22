@@ -9,25 +9,11 @@
 
 using namespace std;
 
-void TestMultiThread(){
-    MolecularSystem ms;
-//    QuickOpen(ms,DATAFILESPATH+"/Structures/tip4p_water_5nm_chunk.mol2");
-    Trajectory traj(ms);
-//    cout<<"NAtoms = "<<ms.AtomsCount()<<endl;
-    traj._testMultiThread();
-}
-
 string curPath = DATAFILESPATH+"/../UnitTests/008.TestTraj/";
 
 TEST(KeywordsColumnPos,DISABLED_t1){
     KeywordsColumnPos kcp;
     kcp.FindColumnPos("ITEM: ATOMS id mol type x y z vx vy vz");
-}
-
-TEST(multithread,DISABLED_t2){
-    for(;;) {
-        TestMultiThread();
-    }
 }
 
 TEST(Reading,DISABLED_t1){
@@ -85,7 +71,7 @@ TEST(Reading,largeSys){
 //            certainFrames.insert(i);
 //        }
         traj.Read(curPath + "system.lammpstrj");
-        //raj.Read(curPath + "system.lammpstrj.2");
+        //traj.Read(curPath + "system.lammpstrj.2");
         for(int i=0;i<traj.NFrames();i++){
             cout<<"Frame = "<<i<<", ts = "<<traj[i].ts_<<", NAtoms = "<<traj[i].nAtoms_<<endl;
         }

@@ -94,8 +94,8 @@ TEST(TestPeriodicTable,case1){
 TEST(XYZ,case1){
     XYZ v1 = {1.0,2,3};
     XYZ v2(4,5,6.0);
-    double coords[] = {5,7,9};
-    double *pD = coords;
+    XYZ_DTYPE coords[] = {5,7,9};
+    XYZ_DTYPE *pD = coords;
     XYZ v3 = pD;
     EXPECT_EQ(v1[0],1.0);
     EXPECT_EQ(v1[1],2.0);
