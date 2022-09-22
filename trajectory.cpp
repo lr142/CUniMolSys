@@ -469,7 +469,7 @@ void Trajectory::ShowTrajectory(std::string filename,bool showOriginal,int max_w
         th_.push_back(thread(&Trajectory::__show_trajectory_thread_main__,this,i,max_workers,showOriginal,ref(molsys_frames)));
     }
     MolecularSystem entire;
-    for(int i=0;i<th_.size();i++){ // must join in order
+    for(int i=0;i<(int)th_.size();i++){ // must join in order
         th_[i].join();
         auto pair = TaskDistribution(i,max_workers,NFrames());
         for(int j=pair.first;j<pair.second;j++)

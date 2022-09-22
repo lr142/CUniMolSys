@@ -140,7 +140,7 @@ Molecule GridForNeighList::_debug_ShowGridContentAsMolecule(int ix, int iy, int 
 
 Molecule GridForNeighList::_debug_ShowGridContentAsMolecule(vector<AtomInGrid> &vec, MolecularSystemAccessor &ms) {
     Molecule mol;
-    for(int i=0;i<vec.size();i++) {
+    for(unsigned int i=0;i<vec.size();i++) {
         Atom a;
         a.element = ms.AtomByGlobalIndex(vec[i].index).element;
         a.xyz = vec[i].xyz;
@@ -338,7 +338,7 @@ void NeighborList::generateEquivalentPositionsForPBC(XYZ xyzInCell, vector<XYZ> 
 void NeighborList::removeAtomListDuplication(vector<AtomInGrid> &vec) {
     vector<AtomInGrid> copy;
     set<int> foundAtoms;
-    for(int i=0;i<vec.size();i++) {
+    for(unsigned int i=0;i<vec.size();i++) {
         if (foundAtoms.find(vec[i].index) == foundAtoms.end()) {
             foundAtoms.insert(vec[i].index);
             copy.push_back(vec[i]);
@@ -483,7 +483,7 @@ void BondDetectorByRules::Detect(MolecularSystem &ms, bool flushCurrentBonds) {
 int BondDetectorByRules::searchRules(MolecularSystemAccessor &msa, Atom &fromAtom, Atom &toAtom, vector<BondRule> &rule_vec){
     double dist_sqr = pNlist_->DistanceSquared(fromAtom.xyz, toAtom.xyz);
     int matched_iBond = -1;
-    for(int iBond=0;iBond<rule_vec.size();iBond++){
+    for(unsigned int iBond=0;iBond<rule_vec.size();iBond++){
         BondRule &rule = rule_vec[iBond];
         if(dist_sqr<rule.low_sqr or dist_sqr>rule.high_sqr)
             continue;

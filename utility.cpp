@@ -29,8 +29,8 @@ vector<string> StringSplit(string str,char delimitator){
     return result;
 }
 string StringStrip(string str){
-    int beg,end;
-    for(beg=0;beg<str.size();++beg){
+    int beg,end,sz = str.size();
+    for(beg=0;beg<sz;++beg){
         if(!isspace(str[beg]))
             break;
     }
@@ -96,7 +96,7 @@ void ProgressBar(double percent,int length){
     int i;
     for(i=0;i<filled;i++)
         oss<<"#";
-    for(i=filled;i<length;i++){
+    for(i=int(filled);i<length;i++){
         oss<<" ";
     }
     oss<<"] "<<fixed<<setprecision(2)<<setw(4)<<percent*100<<"%";
@@ -183,7 +183,7 @@ PeriodicTable* PeriodicTable::getInstance_(){
 }
 string PeriodicTable::AtomicNumberToElement(int atomicNumber) {
     auto pTable = PeriodicTable::getInstance_();
-    if(atomicNumber<0 || atomicNumber>pTable->elements_.size())
+    if(atomicNumber<0 || atomicNumber>(int)pTable->elements_.size())
         return "";
     else
         return pTable->elements_[atomicNumber];
@@ -191,7 +191,7 @@ string PeriodicTable::AtomicNumberToElement(int atomicNumber) {
 int PeriodicTable::ElementToAtomicNumber(string element) {
     auto pTable = PeriodicTable::getInstance_();
     element = StringToCapitalized(element);
-    for(int i=0;i<pTable->elements_.size();++i){
+    for(int i=0;i<(int)pTable->elements_.size();++i){
         if(pTable->elements_[i] == element)
             return i;
     }

@@ -21,7 +21,7 @@ bool XYZFile::Read(MolecularSystem &ms, std::string filename) {
         int atomCount;
         try {
             atomCount = stoi(StringRemoveComment(line));
-        }catch(std::exception& e){
+        }catch(std::exception){
             continue;
         }
         shared_ptr<Molecule> currentMol = make_shared<Molecule>();

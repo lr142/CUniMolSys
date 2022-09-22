@@ -116,7 +116,7 @@ bool Mol2File::parseBoundaryLine(string line, Boundary &boundary){
    // i.e. A=B=90, C may not to 90.
 
    auto parts = StringSplit(line);
-   double lx,ly,lz,C;
+   XYZ_DTYPE lx,ly,lz,C;
    try{
        lx = stof(parts[0]);
        ly = stof(parts[1]);

@@ -42,8 +42,8 @@ void MolSysReorganize(MolecularSystem &ms, vector<int>& scheme){
     vector<int> globalIndexOldToNew(scheme.size());
     vector<int> globalIndexNewToOld(scheme.size());
     int newIndexCounter = 0;
-    for(int iMol=0;iMol<newMolsContainedAtomIndexes.size();iMol++){
-        for(int iAtom=0;iAtom<newMolsContainedAtomIndexes[iMol].size();iAtom++){
+    for(unsigned int iMol=0;iMol<newMolsContainedAtomIndexes.size();iMol++){
+        for(unsigned iAtom=0;iAtom<newMolsContainedAtomIndexes[iMol].size();iAtom++){
             int oldIndex = newMolsContainedAtomIndexes[iMol][iAtom];
             globalIndexOldToNew[oldIndex] = newIndexCounter;
             globalIndexNewToOld[newIndexCounter] = oldIndex;
@@ -189,11 +189,11 @@ void MolSysExtend(MolecularSystem &dest, MolecularSystem &src){
                                     src.interMolecularBonds.end());
     dest.RenumberAtomSerials();
     MolecularSystemAccessor msaNew(dest);
-    for(int iBond=nInterBondsInDest;iBond<dest.interMolecularBonds.size();iBond++){
+    for(unsigned int iBond=nInterBondsInDest;iBond<dest.interMolecularBonds.size();iBond++){
         auto pNewBond = dest.interMolecularBonds[iBond];
         string oldGlobalSerials[2];
         string newGlobalSerials[2];
-        for(int i=0;i<2;i++){
+        for(unsigned int i=0;i<2;i++){
             int oldGlobalIndex = msaOld.GlobalIndexOfAtom(oldGlobalSerials[i]);
             int newGlobalIndex = oldGlobalIndex + nAtomsSysInDest;
             newGlobalSerials[i] = msaNew.AtomByGlobalIndex(newGlobalIndex).globalSerial;
@@ -250,7 +250,7 @@ void MolSysSubsystemByMask(MolecularSystem &ms,vector<bool> mask){
     if(mask.size() != ms.AtomsCount())
         ERROR("vector mask must have same length as the number of atoms in MolecularSystem");
     vector<int> scheme(mask.size());
-    for(int i=0;i<scheme.size();i++){
+    for(unsigned int i=0;i<scheme.size();i++){
         scheme[i] = mask[i]? 0 : 1;
     }
     MolSysReorganize(ms,scheme);

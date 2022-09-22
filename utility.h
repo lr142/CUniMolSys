@@ -114,7 +114,7 @@ protected:
 pair<int,int> TaskDistribution(int iThread,int nThreads,int nTasks);
 
 // Mathematical Functions
-template <class T=double>
+template <class T>
 class XYZ_T_{
 public:
     XYZ_T_();
@@ -213,29 +213,29 @@ template<class T> T XYZDot(const XYZ_T_<T> &v1, const XYZ_T_<T> &v2){
     return v1.xyz[0]*v2.xyz[0] + v1.xyz[1]*v2.xyz[1] + v1.xyz[2]*v2.xyz[2];
 }
 template<class T> XYZ_T_<T> XYZCross(const XYZ_T_<T> &v1, const XYZ_T_<T> &v2){
-    double x =  v1.xyz[1]*v2.xyz[2] - v1.xyz[2]*v2.xyz[1];
-    double y = -v1.xyz[0]*v2.xyz[2] + v1.xyz[2]*v2.xyz[0];
-    double z =  v1.xyz[0]*v2.xyz[1] - v1.xyz[1]*v2.xyz[0];
+    T x =  v1.xyz[1]*v2.xyz[2] - v1.xyz[2]*v2.xyz[1];
+    T y = -v1.xyz[0]*v2.xyz[2] + v1.xyz[2]*v2.xyz[0];
+    T z =  v1.xyz[0]*v2.xyz[1] - v1.xyz[1]*v2.xyz[0];
     return XYZ_T_<T>(x, y, z);
 }
 template<class T> bool operator==(const XYZ_T_<T>& v1, const XYZ_T_<T>& v2){
-    static double tolerance = 1e-5;
+    static T tolerance = 1e-5;
     return (v1-v2).Norm() < tolerance;
 }
 template<class T> std::ostream &operator<<(std::ostream &os, const XYZ_T_<T> &xyz) {
     os <<"["<<xyz.xyz[0]<<", "<<xyz.xyz[1]<<", "<<xyz.xyz[2]<<"]";
     return os;
 }
-template<class T> void XYZRotate(XYZ_T_<T>* coords, int numAtoms, double degree_clockwise, XYZ_T_<T> axis){
+template<class T> void XYZRotate(XYZ_T_<T>* coords, int numAtoms, T degree_clockwise, XYZ_T_<T> axis){
     axis.Normalized();
-    double rx = axis[0];
-    double ry = axis[1];
-    double rz = axis[2];
+    T rx = axis[0];
+    T ry = axis[1];
+    T rz = axis[2];
     // The rotational matrix was copied from a previous code. I forgot its reference...
-    double phi = degree_clockwise * MY_PI / 180.0;
-    double c = std::cos(phi);
-    double s = std::sin(phi);
-    double RMatrix[3][3];
+    T phi = degree_clockwise * MY_PI / 180.0;
+    T c = std::cos(phi);
+    T s = std::sin(phi);
+    T RMatrix[3][3];
     RMatrix[0][0] = c + (1-c)*rx*rx;
     RMatrix[0][1] = (1-c)*rx*ry - rz*s;
     RMatrix[0][2] = (1-c)*rx*rz + ry*s;

@@ -70,10 +70,7 @@ TEST(Reading,largeSys){
 //            cout<<"Frame = "<<i<<", ts = "<<traj[i].ts_<<", NAtoms = "<<traj[i].nAtoms_<<endl;
 //        }
         string filename = "";//DATAFILESPATH+"/../dump.mol2";
-
-        traj.ShowTrajectory(filename,false,4);
         traj.ShowTrajectory(filename,false,8);
-        traj.ShowTrajectory(filename,false,-1);
     }
 }
 

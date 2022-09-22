@@ -140,7 +140,7 @@ MolecularSystem MolecularSystem::DeepCopy(){
         *pNewMol = this->molecules[i]->DeepCopy();
         copy.molecules.push_back(pNewMol);
     }
-    for(int i=0;i<this->interMolecularBonds.size();i++){
+    for(unsigned int i=0;i<this->interMolecularBonds.size();i++){
         copy.interMolecularBonds.push_back(make_shared<Bond>());
         *(copy.interMolecularBonds[i]) = *(this->interMolecularBonds[i]);
     }
@@ -202,7 +202,7 @@ void MolecularSystem::RenumberAtomSerials(int startingGlobalSerial) {
         }
     }
     // Finally take care of the inter-molecule bonds:
-    for(int iBond=0;iBond<this->interMolecularBonds.size();iBond++){
+    for(unsigned int iBond=0;iBond<this->interMolecularBonds.size();iBond++){
         auto pBond = this->interMolecularBonds[iBond];
         // Info fetched from the MolecularSystemAccessor msa are old info.
         auto iFrom = msa.MolAndLocalIndexOfAtom(pBond->atom1);
@@ -257,7 +257,7 @@ void MolecularSystem::Rotate(double clockwise_degree, XYZ axis){
             newCoords[counter++] = (*this)[iMol][iAtom].xyz;
         }
     }
-    XYZRotate(newCoords, nAtom, clockwise_degree, axis);
+    XYZRotate(newCoords, nAtom, XYZ_DTYPE(clockwise_degree), axis);
     counter = 0;
     for(int iMol=0;iMol<MoleculesCount();iMol++){
         for(int iAtom=0;iAtom<(*this)[iMol].AtomsCount();iAtom++){
@@ -271,7 +271,7 @@ void MolecularSystem::FractionalToCartesian(){
         ERROR("Not supported for non-orthogonal systems!");
     XYZ_DTYPE uvw[3][3];
     boundary.GetUVW(uvw);
-    double X,Y,Z;
+    XYZ_DTYPE X,Y,Z;
     X = uvw[0][0];
     Y = uvw[1][1];
     Z = uvw[2][2];
@@ -383,7 +383,7 @@ void MolecularSystemAccessor::build_bonding_map(){
         }
     }
     // Global Bonds
-    for(int iBond=0;iBond<ms_.interMolecularBonds.size();iBond++){
+    for(unsigned int iBond=0;iBond<ms_.interMolecularBonds.size();iBond++){
         shared_ptr<Bond> pB = ms_.interMolecularBonds[iBond];
         int iFromGlobalIndex = GlobalIndexOfAtom(pB->atom1);
         int iToGlobalIndex   = GlobalIndexOfAtom(pB->atom2);
