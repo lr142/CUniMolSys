@@ -226,7 +226,7 @@ template<class T> std::ostream &operator<<(std::ostream &os, const XYZ_T_<T> &xy
     os <<"["<<xyz.xyz[0]<<", "<<xyz.xyz[1]<<", "<<xyz.xyz[2]<<"]";
     return os;
 }
-template<class T> void XYZRotate(XYZ_T_<T>* coords, int numAtoms, T degree_clockwise, XYZ_T_<T> axis){
+template<class T> void XYZRotate(XYZ_T_<T>* coords, int numAtoms, double degree_clockwise, XYZ_T_<T> axis){
     axis.Normalized();
     T rx = axis[0];
     T ry = axis[1];

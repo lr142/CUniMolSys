@@ -13,7 +13,7 @@ void MolSysReorganize(MolecularSystem &ms, vector<int>& scheme){
     int nAtoms = ms.AtomsCount();
     if(nAtoms == 0) // Empty System
         return;
-    if(scheme.size()!=nAtoms)
+    if((int)scheme.size()!=nAtoms)
         ERROR("Length of scheme must be equal to atoms count in the MolecularSystem");
     int newMolsCount = 0;
     for(auto item:scheme){
@@ -247,7 +247,7 @@ void MolSysDuplicatePeriodically(MolecularSystem &ms, int ix, int iy, int iz, bo
 }
 
 void MolSysSubsystemByMask(MolecularSystem &ms,vector<bool> mask){
-    if(mask.size() != ms.AtomsCount())
+    if((int)mask.size() != ms.AtomsCount())
         ERROR("vector mask must have same length as the number of atoms in MolecularSystem");
     vector<int> scheme(mask.size());
     for(unsigned int i=0;i<scheme.size();i++){

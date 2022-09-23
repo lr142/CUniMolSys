@@ -17,7 +17,7 @@ template<class T> void ptr_create_space(T* &ptr, int size, bool nullptr_conditio
         try{
             ptr = new T[size];
         }
-        catch(exception e){
+        catch(exception){
             ERROR("Memory Allocation Failed.");
         }
     }
@@ -40,7 +40,7 @@ void TrajFile::Clear() {
     nAtoms.clear();
     filename = "";
 }
-void TrajFile::AddFrame(int nAtoms,int ts){
+void TrajFile::AddFrame(int nAtoms,long long ts){
     timesteps.push_back(ts);
     this->nAtoms.push_back(nAtoms);
     lines.push_back(make_shared<vector<string>>());
@@ -112,34 +112,45 @@ void TrajectoryFrame::Read(TrajFile &trajFile, int iFrameInTrajFile) {
     this->createMemory(kcp);
 
     // Read every atom, Starting from the second line, each line represents an atom.
-    for(int i=0;i<nAtoms_;i++){
-        auto parts = StringSplit(lines[i+1]);
-        int serial = stoi(parts[kcp.id]);
-        // serial and xyz must always be present
-        s_[i] = serial;
-        x_[i][0] = stof(parts[kcp.xu]);
-        x_[i][1] = stof(parts[kcp.yu]);
-        x_[i][2] = stof(parts[kcp.zu]);
-        // The following info are not always present
-        if(kcp.vx!=-1 or kcp.vy!=-1 or kcp.vz!=-1) {
-            // if any one of vx, vy, or vz is present, the entire space for v is created.
-            // Same rules apply also for fx~z, ix~z
-            v_[i][0] = stof(parts[kcp.vx]);
-            v_[i][1] = stof(parts[kcp.vy]);
-            v_[i][2] = stof(parts[kcp.vz]);
-        }
-        if(kcp.fx!=-1 or kcp.fy!=-1 or kcp.fz!=-1) {
-            f_[i][0] = stof(parts[kcp.fx]);
-            f_[i][1] = stof(parts[kcp.fy]);
-            f_[i][2] = stof(parts[kcp.fz]);
-        }
-        if(kcp.ix!=-1 or kcp.iy!=-1 or kcp.iz!=-1) {
-            i_[i][0] = stoi(parts[kcp.ix]);
-            i_[i][1] = stoi(parts[kcp.iy]);
-            i_[i][2] = stoi(parts[kcp.iz]);
+    int i;
+    try {
+        for (i = 0; i < nAtoms_; i++) {
+            auto parts = StringSplit(lines[i + 1]);
+            int serial = stoi(parts[kcp.id]);
+            // serial and xyz must always be present
+            s_[i] = serial;
+            x_[i][0] = stof(parts[kcp.xu]);
+            x_[i][1] = stof(parts[kcp.yu]);
+            x_[i][2] = stof(parts[kcp.zu]);
+            // The following info are not always present
+            if (kcp.vx != -1 or kcp.vy != -1 or kcp.vz != -1) {
+                // if any one of vx, vy, or vz is present, the entire space for v is created.
+                // Same rules apply also for fx~z, ix~z
+                v_[i][0] = stof(parts[kcp.vx]);
+                v_[i][1] = stof(parts[kcp.vy]);
+                v_[i][2] = stof(parts[kcp.vz]);
+            }
+            if (kcp.fx != -1 or kcp.fy != -1 or kcp.fz != -1) {
+                f_[i][0] = stof(parts[kcp.fx]);
+                f_[i][1] = stof(parts[kcp.fy]);
+                f_[i][2] = stof(parts[kcp.fz]);
+            }
+            if (kcp.ix != -1 or kcp.iy != -1 or kcp.iz != -1) {
+                i_[i][0] = stoi(parts[kcp.ix]);
+                i_[i][1] = stoi(parts[kcp.iy]);
+                i_[i][2] = stoi(parts[kcp.iz]);
+            }
         }
     }
+    catch(exception){
+        ERROR("At this line:\n"+lines[i + 1]);
+    }
     sort_atoms();
+    // construct the serial_to_index map
+    this->s_to_index.clear();
+    for(int i=0;i<nAtoms_;i++){
+        s_to_index[s_[i]] = i;
+    }
 }
 void TrajectoryFrame::createMemory(KeywordsColumnPos &kcp) {
     bool cond;
@@ -213,20 +224,25 @@ int Trajectory::NFrames() {
     return frames_.size();
 }
 
-bool read_one_frame_from_file_(ifstream &ifs, int &lineno,TrajFile& trajFile,set<int> &certainFrames){
+bool read_one_frame_from_file_(ifstream &ifs, int &lineno,TrajFile& trajFile,set<long long> &certainFrames){
     string line;
     int nAtoms;
-    int ts;
+    long long ts;
     // Read the header
+    // Note: lineno is incremented AFTER the line is read and parsed.
     if(not getline(ifs,line) or not StringRegexMatch(line, "ITEM: TIMESTEP"))
         return false;
-    lineno++;getline(ifs,line);
-    ts = stoi(StringSplit(line)[0]);
-    lineno++;getline(ifs,line);
+    lineno++;
+    getline(ifs,line);
+    ts = stoll(StringSplit(line)[0]);
+    lineno++;
+    getline(ifs,line);
     if(not StringRegexMatch(line,"ITEM: NUMBER OF ATOMS"))
         throw exception();
-    lineno++;getline(ifs,line);
+    lineno++;
+    getline(ifs,line);
     nAtoms = stoi(StringSplit(line)[0]);
+    lineno++;
     for(int i=0;i<4;i++){
         lineno++;
         getline(ifs,line);
@@ -249,7 +265,7 @@ bool read_one_frame_from_file_(ifstream &ifs, int &lineno,TrajFile& trajFile,set
     return true;
 }
 
-void Trajectory::read_preparation_step1_find_frames_in_file(string filename,int maxFrames, set<int> &certainFrames){
+void Trajectory::read_preparation_step1_find_frames_in_file(string filename,int maxFrames, set<long long> &certainFrames){
     // read all into cache
     ifstream ifs(filename);
     if(not ifs)
@@ -269,9 +285,8 @@ void Trajectory::read_preparation_step1_find_frames_in_file(string filename,int 
                 break;
         }
     }
-    catch(exception e){
-        ERROR("\nWhile reading line "+to_string(lineno+1)+" of ["+trajFile.filename+
-              "]:\n\""+line+"\"");
+    catch(exception){
+        ERROR("\nWhile reading line "+to_string(lineno+1)+" of ["+trajFile.filename+"]");
     }
 
     auto end = chrono::system_clock::now();
@@ -282,7 +297,7 @@ void Trajectory::read_preparation_step1_find_frames_in_file(string filename,int 
 
     // double check
     for(int i=0;i<trajFile.NFrames();i++){
-        if( trajFile[i].size() != trajFile.NAtoms(i)+1 or
+        if( (int)trajFile[i].size() != trajFile.NAtoms(i)+1 or
             not StringRegexMatch(trajFile[i][0],"ITEM: ATOMS"))
             ERROR("Trajectory file reading error for frame ."+ to_string(i));
     }
@@ -346,7 +361,7 @@ void Trajectory::read_final_step5_in_parallel(int oldNFrames, int max_workers){
 }
 
 
-int Trajectory::Read(string filename, int max_workers, int maxFrames, bool removeDup, set<int> certainFrames){
+int Trajectory::Read(string filename, int max_workers, int maxFrames, bool removeDup, set<long long> certainFrames){
 
 
     read_preparation_step1_find_frames_in_file(filename,maxFrames,certainFrames);
@@ -385,7 +400,8 @@ void Trajectory::__read_frame_thread_main__(int iThread, int NThreads, int oldNF
     }
 }
 
-shared_ptr<MolecularSystem> Trajectory::UpdateCoordsAtFrame(int iFrame, bool only_in_traj){
+
+shared_ptr<MolecularSystem> Trajectory::UpdateCoordsAtFrame(int iFrame, const set<int>& update_indexes, const set<int>& report_indexes){
     /* This function should be thread-safe. It only reads member data, no writes on shared member data */
     ostringstream err_msg;
     if(iFrame<0 or iFrame>NFrames()){
@@ -394,68 +410,46 @@ shared_ptr<MolecularSystem> Trajectory::UpdateCoordsAtFrame(int iFrame, bool onl
     }
     TrajectoryFrame& f = (*this)[iFrame];
 
-    // Find out what atoms are in the frame
-    MolecularSystemAccessor msa_(ms_);
-    vector<int> ms_to_traj_index_map(msa_.AtomsCount(),-1);
-    for(int i=0;i<f.nAtoms_;i++){
-        int index = f.s_[i] - 1; // serial to index
-        /* !!!!!! If running a GCMC, possible that [index > atoms in the system]. Leave it now, just throw a exception */
-        if(index<0 or index>=msa_.AtomsCount()){
-            err_msg<<"Atom index read in trajectory file ("<<index<<") <0 or >= nAtoms in system ("<<msa_.AtomsCount()<<")."<<endl;
-            err_msg<<"Reading GCMC trajectory is not yet implemented, sorry!";
-            ERROR(err_msg.str());
-        }
-        // "i" is the index in trajectory, "index" is the index in original molsys;
-        ms_to_traj_index_map[index] = i;
-    }
-
-    shared_ptr<MolecularSystem> pMS;
     MolecularSystem copy = ms_.DeepCopy();
-    if(only_in_traj){
-        vector<bool> mask = vector<bool>(msa_.AtomsCount(),false);
-        for(int i=0;i<msa_.AtomsCount();i++){
-            if(ms_to_traj_index_map[i]>=0)
-                mask[i] = true;
-        }
-        MolSysSubsystemByMask(copy,mask);
-        //Update coords. Atoms in pMS and in trajectory should have exactly the same atom order
-        int iCounter = 0;
-        for(int i=0;i<copy.MoleculesCount();i++){
-            for(int j=0;j<copy[i].AtomsCount();j++){
-                copy[i][j].xyz = f.x_[iCounter++];
-            }
-        }
-    }else{
-        int index = 0;
-        for(int i=0;i<copy.MoleculesCount();i++){
-            for(int j=0;j<copy[i].AtomsCount();j++){
-                int indexInTraj = ms_to_traj_index_map[index];
-                if(indexInTraj != -1)
-                    copy[i][j].xyz = f.x_[indexInTraj];
-                ++index;
-            }
+    MolecularSystemAccessor msa_copy(copy);
+
+    vector<bool> mask(msa_copy.AtomsCount(),false);
+    for(int i=0;i<msa_copy.AtomsCount();i++){
+        if(report_indexes.empty() or report_indexes.contains(i)){
+            mask[i] = true;
         }
     }
-    pMS = make_shared<MolecularSystem>(copy);
+    for(int i=0;i<msa_copy.AtomsCount();i++){
+        if(mask[i] and (update_indexes.empty() or update_indexes.contains(i))){
+            int serial = i+1;
+            int index_in_traj = f.SerialToIndex(serial);
+            if(index_in_traj == -1)
+                continue;
+            msa_copy.AtomByGlobalIndex(i).xyz = f.X()[index_in_traj];
+        }
+    }
+    MolSysSubsystemByMask(copy,mask);
+    shared_ptr<MolecularSystem> pMS = make_shared<MolecularSystem>(copy);
     pMS->SetName(ms_.GetName()+" "+to_string(this->frames_[iFrame]->ts_));
     return pMS;
 }
 
-void Trajectory::__show_trajectory_thread_main__(int iThread,int NThreads,bool showOriginal, vector<shared_ptr<MolecularSystem>> &sys){
+void Trajectory::__show_trajectory_thread_main__(int iThread,int NThreads,const set<int>& update_indexes,
+                                                 const set<int>& report_indexes, vector<shared_ptr<MolecularSystem>> &sys){
     int nTasks = NFrames();
     auto pair = TaskDistribution(iThread,NThreads,nTasks);
     for(int i=pair.first;i<pair.second;i++){
-        sys[i] = UpdateCoordsAtFrame(i,!showOriginal);
+        sys[i] = UpdateCoordsAtFrame(i,update_indexes,report_indexes);
         MolSysReduceToSingleMolecule(*sys[i]);
         (*sys[i])[0].name = to_string(frames_[i]->ts_);
         if(iThread==0)
-            ProgressBar(1.0*i/nTasks);
+            ProgressBar(1.0*i/(pair.second-pair.first));
     }
     if(iThread==0)
         ProgressBar(1.0);
 }
 
-void Trajectory::ShowTrajectory(std::string filename,bool showOriginal,int max_workers) {
+void Trajectory::ShowTrajectory(string filename, const set<int>& update_indexes, const set<int>& report_indexes, int max_workers) {
     vector<shared_ptr<MolecularSystem>> molsys_frames(NFrames());
     if(max_workers < 1)
         max_workers = thread::hardware_concurrency();
@@ -466,7 +460,8 @@ void Trajectory::ShowTrajectory(std::string filename,bool showOriginal,int max_w
 
     vector<thread> th_;
     for(int i=0;i<max_workers;i++){
-        th_.push_back(thread(&Trajectory::__show_trajectory_thread_main__,this,i,max_workers,showOriginal,ref(molsys_frames)));
+        th_.push_back(thread(&Trajectory::__show_trajectory_thread_main__,this,i,max_workers,
+                             ref(update_indexes),ref(report_indexes),ref(molsys_frames)));
     }
     MolecularSystem entire;
     for(int i=0;i<(int)th_.size();i++){ // must join in order

@@ -62,13 +62,15 @@ bool LAMMPSDataFile::Read(MolecularSystem &ms, string filename){
 
         //Read boundary
         JumpToLine(lines,"xlo xhi",lineno,0,lines.size());
-        double lohi[3][2];
+        XYZ_DTYPE lohi[3][2];
         for (int i = 0; i < 3; i++) {
             auto parts = StringSplit(lines[lineno + i]);
             for (int j = 0; j < 2; j++) {
                 lohi[i][j] = stof(parts[j]);
             }
         }
+        ms.boundary.SetLoHi(lohi);
+
         JumpToLine(lines,"Masses",lineno,0,lines.size());
         lineno += 2;
         while (StringRegexMatch(lines[lineno], "[0-9]+ [.0-9]+")) {
@@ -149,7 +151,7 @@ bool LAMMPSDataFile::Read(MolecularSystem &ms, string filename){
         // No renumbering needed for the second time.
         // Angles, Dihedrals, Impropers are ignored.
         return nTotalAtomsCount>0;
-    }catch(exception e){
+    }catch(exception){
         ERROR("\nWhile reading line "+to_string(lineno+1)+" of ["+filename+"]:\n\""+line+"\"");
     }
     return false; // should not reach here if no exception

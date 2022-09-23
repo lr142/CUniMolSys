@@ -34,7 +34,7 @@ string StringStrip(string str){
         if(!isspace(str[beg]))
             break;
     }
-    if(beg==str.size()) // all empty string
+    if(beg==(int)str.size()) // all empty string
         return "";
     // The string must at least contain some non-white chars
     for(end=str.size()-1;end>=0;--end)

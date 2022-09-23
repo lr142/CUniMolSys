@@ -423,7 +423,7 @@ void BondDetectorByRules::ParseFile(string filename){
             rules_[name1].push_back(rule);
             if(name1!=name2)
                 rules_[name2].push_back(rule);
-        }catch(exception e){
+        }catch(exception){
             ERROR("While reading ["+filename+"] at this line:\n"+line);
         }
     }

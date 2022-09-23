@@ -96,7 +96,7 @@ bool Mol2File::parseAtomLine(string line,Atom &a){
         auto type_splitted = StringSplit(a.type,'.');
         a.element = StringToCapitalized(type_splitted[0]);
         a.charge = parts.size()>8 ? stof(parts[8]) : 0.0;
-    }catch(exception e){
+    }catch(exception){
         return false;
     }
     return true;
@@ -124,7 +124,7 @@ bool Mol2File::parseBoundaryLine(string line, Boundary &boundary){
 //       A  = stof(parts[3]);
 //       B  = stof(parts[4]);
        C  = stof(parts[5]);
-   }catch(exception e){
+   }catch(exception){
        return false;
    }
    boundary.SetOrigin(XYZ(0,0,0));

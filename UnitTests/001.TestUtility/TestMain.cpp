@@ -129,7 +129,7 @@ TEST(XYZ,rotate){
     coords[2] = {0,0,1};
     coords[3] = {1,1,1};
     XYZ direction = {0,0,1};
-    XYZRotate(coords,4,120,{100,100,100});
+    XYZRotate(coords,4,120.0,{100.0,100.0,100.0});
     // x-->z, y-->x, z-->y,  [111] is unchanged.
     EXPECT_TRUE(coords[0]==XYZ(0,0,1));
     EXPECT_TRUE(coords[1]==XYZ(1,0,0));

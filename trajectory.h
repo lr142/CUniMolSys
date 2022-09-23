@@ -19,10 +19,10 @@ public:
     TrajFile(const TrajFile &other) = delete; // Prevent accidentally copied this huge object.
     TrajFile& operator=(const TrajFile &other) = delete;
     int NFrames();
-    void AddFrame(int nAtoms,int ts);
+    void AddFrame(int nAtoms,long long ts);
     inline vector<string>& operator[] (int iFrame) { return *(lines[iFrame]);}
     inline int NAtoms(int iFrame){return nAtoms[iFrame];}
-    inline int TimeStep(int iFrame){ return timesteps[iFrame];}
+    inline long long TimeStep(int iFrame){ return timesteps[iFrame];}
     void Clear();
     string filename;
 protected:
@@ -30,7 +30,7 @@ protected:
      * as a vector of shared_ptr of vector<string>. I tried to store all lines in a huge vector<string> but that
      * was a bad idea */
     vector<shared_ptr<vector<string>>> lines;
-    vector<int> timesteps; // timestep of each frame; size of this vector is # of frames in file.
+    vector<long long> timesteps; // timestep of each frame; size of this vector is # of frames in file.
     vector<int> nAtoms; // number of atoms of each frame in this file.
 };
 struct KeywordsColumnPos{
@@ -71,23 +71,32 @@ public:
     void Read(TrajFile &trajFile, int iFrameInTrajFile);
     /* number of atoms in this frame. This number may be smaller (if user dump a specific group instead of all)
  * or larger (when running GCMC) then number of atoms in the system. */
+
+    friend class Trajectory;
+
+    inline int NAtoms(){return nAtoms_;}
+    inline long long TS(){return ts_;}
+    inline XYZ* X(){return x_;}
+    inline XYZ* V(){return v_;}
+    inline XYZ* F(){return f_;}
+    inline XYZ_T_<int>* I(){return i_;}
+    inline int SerialToIndex(int s){ return s_to_index.find(s)==s_to_index.end()? -1 : s_to_index[s];}
+protected:
+    /* Create memory, allocate space as described in kcp. Before called this, nAtoms_ must be correctly initialized */
+    void createMemory(KeywordsColumnPos &kcp);
+    void destroyMemory();
+    void sort_atoms();
+
     int nAtoms_;
-    int ts_; // timestep of this frame.
+    long long ts_; // timestep of this frame.
     /* */
     int* s_; // global serials of every atom in this frame. ('id' reported in dump file)
     XYZ* x_; // coordinates
     XYZ* v_; // velocities
     XYZ* f_; // forces;
     XYZ_T_<int>* i_; // periodic image flags (ix,iy,iz in LAMMPS).
-    friend class Trajectory;
-protected:
-    /* Create memory, allocate space as decribed in kcp. Before called this, nAtoms_ must be correctly initialized */
-    void createMemory(KeywordsColumnPos &kcp);
-    void destroyMemory();
-    void sort_atoms();
 
-
-
+    std::map<int,int> s_to_index; // serial to index map
 
 };
 
@@ -116,7 +125,7 @@ public:
      * This function returns the number of actually read frames.
      * */
     int Read(string filename, int max_workers=-1, int maxFrames=(int)MY_LARGE,
-             bool removeDup=true, std::set<int> certainFrames=set<int>());
+             bool removeDup=true, std::set<long long> certainFrames=set<long long>());
     /* Discard a specific frame */
     bool DiscardFrame(int iFrame);
     /* Discard all frames, release the memory, and get ready to another trajctory file */
@@ -124,10 +133,16 @@ public:
     int NFrames();
 
     /* Returns a copy of the molsys at iFrame with all coordinates updated to this frame.
-     * Atoms not involved in the trajectory will keep their original coords. If only_in_traj
-     * is true, only those atoms reported in the trajectory will be reported */
-    shared_ptr<MolecularSystem> UpdateCoordsAtFrame(int iFrame, bool only_in_traj=false);
-    void ShowTrajectory(string filename, bool showOriginal=true, int max_workers=-1);
+     * Atoms not involved in the trajectory will keep their original coords.
+     * If update_indexes is not empty, only coordinates of atoms in this set are updated.
+     * If report_indexes is not empty, only coordinates of atoms in this set are included in the returned MolSys
+     * In theory update_indexes should be a subset of report_indexes, but if it is not the case, there won't be a problem.
+     * In addition, the user can pass a same set object as both arguments.
+     * Atoms not included in report_indexes will automatically get ignored. */
+    shared_ptr<MolecularSystem> UpdateCoordsAtFrame(int iFrame, const set<int>& update_indexes, const set<int>& report_indexes);
+    /* Update the trajectory and write the traj into the file filename. if filename = "", no file is written.
+     * update_indexes, and  report_indexes have the same meaning as in UpdateCoordsAtFrame. */
+    void ShowTrajectory(string filename, const set<int>& update_indexes, const set<int>& report_indexes, int max_workers=-1);
     inline TrajectoryFrame & operator[](int i) {return *(frames_[i]);}
 protected:
     MolecularSystem &ms_;
@@ -139,7 +154,7 @@ protected:
     /* Read all lines of a lammpstrj file into this->trajFile.
      * skims the contents of the file and find out how many frames are there and
      * what are the timesteps (trajFile.timesteps) and atom counts */
-    void read_preparation_step1_find_frames_in_file(string filename,int maxFrames,set<int> &certainFrames);
+    void read_preparation_step1_find_frames_in_file(string filename,int maxFrames,set<long long> &certainFrames);
     /* This function will remove duplicate frames in the existing data. By 'duplication' we mean two frames have the
      * same timestep value. The new frames are given in (trajFile.timesteps). If duplication occurs, the old data
      * will be deleted */
@@ -151,7 +166,8 @@ protected:
     TrajFile trajFile;
 //    std::default_random_engine e;
     void __read_frame_thread_main__(int iThread, int NThreads, int oldNFrames);
-    void __show_trajectory_thread_main__(int iThread,int NThreads,bool showOriginal, vector<shared_ptr<MolecularSystem>> &sys);
+    void __show_trajectory_thread_main__(int iThread,int NThreads,const set<int>& update_indexes,
+                                         const set<int>& report_indexes, vector<shared_ptr<MolecularSystem>> &sys);
 
     std::mutex mux;
 };

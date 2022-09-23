@@ -13,6 +13,8 @@ if(${MSVC})
     ENDIF()
 endif()
 
+add_compile_options("-Wall")
+
 # Enable GoogleTests
 add_subdirectory(googletest)
 

@@ -33,6 +33,7 @@ TEST(Reading,DISABLED_t2){
     curPath = DATAFILESPATH+"/../UnitTests/008.TestTraj/";
     QuickOpen(ms,curPath+"polymer.data");
     cout<<ms.Summary()<<endl;
+    QuickSave(ms,DATAFILESPATH+"/../oridump.mol2");
     if(false){
         MolecularSystem copy = ms.DeepCopy();
         MolSysReduceToSingleMolecule(copy);
@@ -41,13 +42,24 @@ TEST(Reading,DISABLED_t2){
     }
     {
         Trajectory traj(ms);
-        set<int> certainFrames;
+        set<long long> certainFrames;
 //        for(int i=4;i<100;i+=2){ // 4,6,8,10,12,... * 1000
 //            certainFrames.insert(i*1000);
 //        }
         for(int i=0;i<1;i++) {
             traj.Read(curPath + "polymer.traj",-1,99999,true,certainFrames); // 4,6,8,10,12 * 10000
-            traj.ShowTrajectory(DATAFILESPATH+"/../dump.mol2",true,1);
+            for(int i=0;i<traj.NFrames();i++){
+                cout<<"Frame = "<<i<<", ts = "<<traj[i].TS()<<", NAtoms = "<<traj[i].NAtoms()<<endl;
+            }
+            set<int> update_atoms;
+            for(int i=16500;i<18000;i++){
+                update_atoms.insert(i);
+            }
+            set<int> include_atoms;
+            for(int i=16500;i<19000;i++){
+                include_atoms.insert(i);
+            }
+            traj.ShowTrajectory(DATAFILESPATH+"/../dump.mol2",update_atoms,include_atoms,4);
         }
     }
 }
@@ -60,17 +72,20 @@ TEST(Reading,largeSys){
     cout<<ms.Summary()<<endl;
     {
         Trajectory traj(ms);
-        set<int> certainFrames;
+        set<long long> certainFrames;
         for(int i=0;i<500;i+=4){
             certainFrames.insert(i*10000);
         }
         traj.Read(curPath + "system.lammpstrj",4,99999,true);//,certainFrames);
-        //traj.Read(curPath + "system.lammpstrj.2",4,99999,true);
+        traj.Read(curPath + "system.lammpstrj.2",4,99999,true);
 //        for(int i=0;i<traj.NFrames();i++){
-//            cout<<"Frame = "<<i<<", ts = "<<traj[i].ts_<<", NAtoms = "<<traj[i].nAtoms_<<endl;
+//            cout<<"Frame = "<<i<<", ts = "<<traj[i].TS()<<", NAtoms = "<<traj[i].NAtoms()<<endl;
 //        }
-        string filename = "";//DATAFILESPATH+"/../dump.mol2";
-        traj.ShowTrajectory(filename,false,8);
+        string filename = DATAFILESPATH+"/../dump.mol2";
+        set<int> update;
+        for(int i=16500;i<18000;i++)
+            update.insert(i);
+        traj.ShowTrajectory(filename,update,update,4);
     }
 }
 
