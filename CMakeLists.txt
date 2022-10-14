@@ -52,3 +52,6 @@ target_link_libraries(main ${LIBNAME})
 
 # Add All Tests
 add_subdirectory(UnitTests)
+
+# Add applications
+add_subdirectory(TrajAnalysis)
