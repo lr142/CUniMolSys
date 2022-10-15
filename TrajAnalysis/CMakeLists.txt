@@ -10,4 +10,8 @@ function(my_add_exec name)
     target_include_directories(${name} PRIVATE ../include)
 endfunction()
 
+if(CMAKE_BUILD_TYPE AND (CMAKE_BUILD_TYPE STREQUAL "Debug"))
+    add_definitions(-DDEBUGGING)
+endif()
+
 my_add_exec(trajana)

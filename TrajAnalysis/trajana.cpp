@@ -28,7 +28,8 @@ void Analyzer::Read(string path){
     vector<string> lammpstrajs;
     for(auto &item:itr){
         if(StringRegexMatch(item.path().filename().string(),"lammpstrj",false)){
-            lammpstrajs.push_back(item.path().filename());
+            auto a = item.path().filename().string();
+            lammpstrajs.push_back(a);
         }
     }
     // Sort before reading to assure correct order.
@@ -36,7 +37,7 @@ void Analyzer::Read(string path){
     // Now read all trajectories
     for(auto &item:lammpstrajs){
         auto full_path = working_dir / item;
-        traj->Read(full_path.string(),this->max_workers);
+        traj->Read(full_path.string(),this->max_workers,100);
     }
 
     // output debugging info, optional
@@ -193,7 +194,7 @@ void Analyzer::PolymerZPositions() {
     Locate(polymers,POLYMER);
 
     // Calculate positions;
-    int NPolymers = polymers.size();
+    int NPolymers = (int)polymers.size();
     int NFrames = traj->NFrames();
     vector<vector<double>> pos_avg(NFrames);
     vector<vector<double>> pos_min(NFrames);
@@ -202,7 +203,7 @@ void Analyzer::PolymerZPositions() {
         pos_avg[iFrame].resize(NPolymers);
         pos_min[iFrame] = vector<double>(NPolymers,MY_LARGE);
         for(int iPoly=0;iPoly<NPolymers;iPoly++){
-            int NAtoms = polymers[iPoly].size();
+            int NAtoms = (int)polymers[iPoly].size();
             double sum_of_z = 0.0;
             for(int iAtom=0;iAtom<NAtoms;iAtom++){
                 int index = polymers[iPoly][iAtom];
