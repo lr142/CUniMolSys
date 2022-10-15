@@ -11,9 +11,9 @@ if(${MSVC})
     else()
         add_compile_options("/MT")
     ENDIF()
+else()
+    add_compile_options("-Wall")   # don't add Wall for MSVC
 endif()
-
-add_compile_options("-Wall")
 
 # Enable GoogleTests
 add_subdirectory(googletest)

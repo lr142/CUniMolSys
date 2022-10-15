@@ -76,8 +76,8 @@ TEST(Reading,largeSys){
         for(int i=0;i<500;i+=4){
             certainFrames.insert(i*10000);
         }
-        traj.Read(curPath + "system.lammpstrj",4,99999,true);//,certainFrames);
-        traj.Read(curPath + "system.lammpstrj.2",4,99999,true);
+        traj.Read(curPath + "system.lammpstrj",-1,99999,true);//,certainFrames);
+        traj.Read(curPath + "system.lammpstrj.2",-1,99999,true);
 //        for(int i=0;i<traj.NFrames();i++){
 //            cout<<"Frame = "<<i<<", ts = "<<traj[i].TS()<<", NAtoms = "<<traj[i].NAtoms()<<endl;
 //        }
@@ -85,7 +85,10 @@ TEST(Reading,largeSys){
         set<int> update;
         for(int i=16500;i<18000;i++)
             update.insert(i);
-        traj.ShowTrajectory(filename,update,update,4);
+//        for(int i=0;i<traj[0].NAtoms()/2;i++)
+//            update.insert(i);
+        filename = ""; // don't write
+        traj.ShowTrajectory(filename,update,update,-1);
     }
 }
 
