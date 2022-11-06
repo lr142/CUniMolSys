@@ -6,6 +6,7 @@
 #include <stack>
 #include <string>
 #include <sstream>
+#include <algorithm>
 using namespace std;
 void MolSysReorganize(MolecularSystem &ms, vector<int>& scheme){
     MolecularSystemAccessor oldMolAccessor(ms);
@@ -109,7 +110,7 @@ void MolSysRandomSplit(MolecularSystem &ms, int N) {
     e.seed(time(0));
     uniform_int_distribution<int> uid(0,N-1);
     vector<int> scheme(nAtoms);
-    for_each(scheme.begin(),scheme.end(),
+    std::for_each(scheme.begin(),scheme.end(),
              [&uid,&e](decltype(*scheme.begin()) &it){it=uid(e);});
     // This function will guarantee that the maximum molecular index == N-1 by manually setting the last element
     scheme[scheme.size()-1] = N-1;

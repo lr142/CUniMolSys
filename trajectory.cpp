@@ -6,6 +6,7 @@
 #include <string>
 #include <sstream>
 #include <memory>
+#include <algorithm>
 using namespace std;
 
 // Auxiliary functions used in this module
@@ -185,7 +186,7 @@ template <class T> void sort_array(T* array, int* key_array, int length){
     for(int i=0;i<length;i++){
         vm[i] = make_pair(key_array[i],array[i]);
     }
-    ::sort(vm.begin(),vm.end(),[](auto &item1, auto &item2){ return item1.first < item2.first;});
+    sort(vm.begin(),vm.end(),[](auto &item1, auto &item2){ return item1.first < item2.first;});
     for(int i=0;i<length;i++){
         array[i] = vm[i].second;
     }
