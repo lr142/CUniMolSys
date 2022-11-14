@@ -725,14 +725,20 @@ void Analyzer::Density(){
     }
     // calculate the total molecular weight of all atoms between two plates
     double totalMW = 0.0;
+    // create a lookup table for quick access of atomic weights (also records what atoms are in the system)
+    map<int,double> globleindex_atomicweights;
     for(int iMol=4;iMol<ms->MoleculesCount();iMol++){ // iMol0,1,2,3 are lower, upper plates and counter ions
         for(int iAtom=0;iAtom<(*ms)[iMol].AtomsCount();iAtom++){
             string ele = (*ms)[iMol][iAtom].element;
             double mw = PeriodicTable::AtomicWeight(ele);
             totalMW += mw;
+            int globalindex = this->msa->GlobalIndexOfAtom((*ms)[iMol][iAtom]);
+            globleindex_atomicweights[globalindex] = mw;
         }
     }
     // Calculate the average spacing.
+    // Old way: simply minus a fixed space.
+    /*
     double total_spacing = 0.0;
     for(int iFrame=0;iFrame<traj->NFrames();iFrame++){
         clay_upper = (*traj)[iFrame].X()[clay_upper_index][2];
@@ -744,6 +750,30 @@ void Analyzer::Density(){
     // Calculate average density.
     double vol = ms->boundary.GetU()[0] * ms->boundary.GetV()[1] * total_spacing; // in A^3
     double rho = totalMW / vol / 6.022E23 * 1E24; // density in g/cm^3
+    */
+    // New way: Strict method
+    double rho = 0.0;
+    for(int iFrame=0;iFrame<traj->NFrames();iFrame++){
+        clay_upper = (*traj)[iFrame].X()[clay_upper_index][2];
+        double touchable_dist = 3.0;
+        double lower = clay_lower+touchable_dist;
+        double upper = clay_upper-touchable_dist;
+        double spacing = upper-lower;
+        double vol = ms->boundary.GetU()[0] * ms->boundary.GetV()[1] * spacing; // in A^3
+        // atoms in between [lower, upper] are considered
+        // calculate the total molecular weight of all atoms between two plates
+        double totalMW = 0.0;
+        for(auto &atomIndex_mw : globleindex_atomicweights){
+            double z = (*traj)[iFrame].X()[atomIndex_mw.first][2];
+            if(z<lower or z>upper)
+                continue;
+            totalMW += atomIndex_mw.second;
+        }
+        double this_rho = totalMW / vol / 6.022E23 * 1E24; // density in g/cm^3
+        rho += this_rho;
+    }
+    rho /= (traj->NFrames());
+
     // output
     ofstream ofs;
     ofs.open(get_output_dir() / "RHO.csv");

@@ -1,6 +1,7 @@
 project(TrajAnalysis)
 set(CMAKE_CXX_STANDARD 20)
 
+
 function(my_add_exec name)
     file(GLOB sources *.cpp)
     file(GLOB headers *.h)
