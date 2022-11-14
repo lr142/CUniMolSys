@@ -54,7 +54,7 @@ def DataFileReader(filename:str,transpose:bool=True):
 
     file = None
     try:
-        file = open(filename,"r")
+        file = open(filename,"r",encoding='UTF-8')
     except:
         print("Can't open {}".format(file))
     # first few lines with # are comments
@@ -96,7 +96,7 @@ class Plotter:
     series:[[PlotSeries],[PlotSeries]]
 
     def __init__(self,outputfile,figsize=(4,3),dpi=600,bar_alpha=0.6):
-        mpl.rcParams["font.sans-serif"] = ["Helvetica"]
+        mpl.rcParams["font.sans-serif"] = ["DejaVu Sans"]
         mpl.rcParams["figure.max_open_warning"] = False
         self.f = plt.figure(figsize=figsize)
         self.dpi = dpi
@@ -318,7 +318,7 @@ def RDFSingleCase(prefix:str, title:str, pathFinder:PathFinder, seeds:[str], fix
         # the 2nd line of file contains the meaning of each column
         if len(column_meanings) != 0:
             continue
-        with open(filename) as datafile:
+        with open(filename,"r",encoding='UTF-8') as datafile:
             datafile.readline()
             line = datafile.readline().strip()
             items = line.split(",")[1:]
@@ -517,7 +517,7 @@ def Main():
     task_file = None
     task_file_name = os.path.join(pf.pwd,"analyze.txt")
     try:
-        task_file = open(task_file_name,"r")
+        task_file = open(task_file_name,"r",encoding='UTF-8')
     except:
         print("Can't open task file [{}], don't know what to do...".format(task_file_name))
 
