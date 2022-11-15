@@ -64,9 +64,16 @@ def DiffusionCoeff():
                 if len(lastLine) == 0:
                     lastLine = file.readlines()[-2].strip()
             parts_raw = lastLine.split(",")[1:]
-            parts = [float(i) for i in parts_raw if i != ""]
+            parts_float = []
+            for i in parts_raw:
+                number = None
+                try:
+                    number = float(i)
+                    parts_float.append(number)
+                except:
+                    parts_float.append(-1.0)
             for index in range(nItems):
-                data[index][iSeed] = parts[index]
+                data[index][iSeed] = parts_float[index]
 
         outfile.write("{},".format(os.path.basename(c)))
         for iItem in range(nItems):
